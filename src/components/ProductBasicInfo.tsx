@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ProductFormData } from '@/types/product';
-import { predefinedCategories } from '@/constants/categories';
+import { useCategories } from '@/hooks/useCategories';
 
 interface ProductBasicInfoProps {
   formData: ProductFormData;
@@ -18,6 +18,8 @@ interface ProductBasicInfoProps {
 }
 
 const ProductBasicInfo = ({ formData, onInputChange }: ProductBasicInfoProps) => {
+  const { categories } = useCategories();
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4">
@@ -38,9 +40,9 @@ const ProductBasicInfo = ({ formData, onInputChange }: ProductBasicInfoProps) =>
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              {predefinedCategories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.name}>
+                  {category.name}
                 </SelectItem>
               ))}
             </SelectContent>

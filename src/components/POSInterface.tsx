@@ -179,37 +179,7 @@ const POSInterface = () => {
   };
 
   const handleBarcodeSearch = () => {
-    if (barcode) {
-      // let foundProduct = mockProducts.find(p => p.barcode === barcode);
-      // let foundVariant = null;
-      
-      // if (!foundProduct) {
-      //   for (const product of mockProducts) {
-      //     if (product.variants) {
-      //       foundVariant = product.variants.find(v => v.barcode === barcode);
-      //       if (foundVariant) {
-      //         foundProduct = product;
-      //         break;
-      //       }
-      //     }
-      //   }
-      // }
-
-      // if (foundProduct) {
-      //   if (foundVariant) {
-      //     addToCart(foundVariant, foundVariant.name);
-      //   } else {
-      //     addToCart(foundProduct);
-      //   }
-      //   setBarcode('');
-      // } else {
-      //   toast({
-      //     title: "Product Not Found",
-      //     description: "Barcode not recognized",
-      //     variant: "destructive",
-      //   });
-      // }
-    }
+    // Barcode search functionality can be implemented later
   };
 
   const handleProductClick = (product: any) => {
@@ -319,7 +289,6 @@ const POSInterface = () => {
         onOpenChange={setUtangDialogOpen}
         totalAmount={cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)}
         onUtangConfirm={(debtorInfo) => {
-          // Handle utang confirmation
           setCart([]);
           toast({
             title: "Utang Recorded",

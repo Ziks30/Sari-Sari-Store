@@ -3,23 +3,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Package, Trash2 } from 'lucide-react';
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  minStock: number;
-  category: string;
-  lastRestocked: string;
-  barcode?: string;
-  description?: string;
-}
+import { DbProduct } from '@/types/inventory';
 
 interface InventoryTableProps {
-  products: Product[];
-  onEditProduct: (product: Product) => void;
-  onRestockProduct: (product: Product) => void;
+  products: DbProduct[];
+  onEditProduct: (product: DbProduct) => void;
+  onRestockProduct: (product: DbProduct) => void;
   onDeleteProduct: (productId: string, productName: string) => void;
 }
 
@@ -29,10 +18,14 @@ const InventoryTable = ({
   onRestockProduct, 
   onDeleteProduct 
 }: InventoryTableProps) => {
-  const getStockStatus = (item: Product) => {
-    if (item.stock === 0) return { label: 'Out of Stock', color: 'destructive' as const };
-    if (item.stock <= item.minStock) return { label: 'Low Stock', color: 'secondary' as const };
+  const getStockStatus = (item: DbProduct) => {
+    if (item.current_stock === 0) return { label: 'Out of Stock', color: 'destructive' as const };
+    if (item.current_stock <= item.minimum_stock) return { label: 'Low Stock', color: 'secondary' as const };
     return { label: 'In Stock', color: 'default' as const };
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -48,7 +41,7 @@ const InventoryTable = ({
                 <th className="text-left p-4 font-medium">Stock</th>
                 <th className="text-left p-4 font-medium">Min Stock</th>
                 <th className="text-left p-4 font-medium">Status</th>
-                <th className="text-left p-4 font-medium">Last Restocked</th>
+                <th className="text-left p-4 font-medium">Last Updated</th>
                 <th className="text-left p-4 font-medium">Actions</th>
               </tr>
             </thead>
@@ -65,18 +58,18 @@ const InventoryTable = ({
                         <span className="font-medium">{product.name}</span>
                       </div>
                     </td>
-                    <td className="p-4">{product.category}</td>
-                    <td className="p-4">₱{product.price}</td>
+                    <td className="p-4">{product.categories?.name || 'Uncategorized'}</td>
+                    <td className="p-4">₱{product.unit_price}</td>
                     <td className="p-4">
-                      <span className={`font-medium ${product.stock <= product.minStock ? 'text-red-600' : 'text-green-600'}`}>
-                        {product.stock}
+                      <span className={`font-medium ${product.current_stock <= product.minimum_stock ? 'text-red-600' : 'text-green-600'}`}>
+                        {product.current_stock}
                       </span>
                     </td>
-                    <td className="p-4">{product.minStock}</td>
+                    <td className="p-4">{product.minimum_stock}</td>
                     <td className="p-4">
                       <Badge variant={status.color}>{status.label}</Badge>
                     </td>
-                    <td className="p-4 text-sm text-gray-600">{product.lastRestocked}</td>
+                    <td className="p-4 text-sm text-gray-600">{formatDate(product.updated_at)}</td>
                     <td className="p-4">
                       <div className="flex space-x-2">
                         <Button 

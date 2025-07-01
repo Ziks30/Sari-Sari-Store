@@ -1,179 +1,179 @@
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Search, Plus, Settings } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useInventoryManagement } from '@/hooks/useInventoryManagement';
+import { DbProduct } from '@/types/inventory';
 import InventoryStats from './inventory/InventoryStats';
+import InventoryFilters from './inventory/InventoryFilters';
 import InventoryTable from './inventory/InventoryTable';
 import LowStockAlert from './inventory/LowStockAlert';
-import AddProductDialog from './AddProductDialog';
-import EditProductDialog from './EditProductDialog';
-import RestockDialog from './RestockDialog';
-import SettingsDialog from './settings/SettingsDialog';
-import { useProducts } from '@/hooks/useProducts';
-import { useCategories } from '@/hooks/useCategories';
+import InventoryDialogs from './inventory/InventoryDialogs';
 
 const InventoryManagement = () => {
-  const { products, isLoading, updateProduct, deleteProduct } = useProducts();
-  const { categories } = useCategories();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [restockDialogOpen, setRestockDialogOpen] = useState(false);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const { toast } = useToast();
-  
-  const categoryOptions = ['All', ...categories.map(cat => cat.name)];
-  
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || 
-      (product.categories && product.categories.name === selectedCategory);
-    return matchesSearch && matchesCategory;
-  });
+  const {
+    products,
+    categories,
+    loading,
+    selectedProduct,
+    addDialogOpen,
+    setAddDialogOpen,
+    editDialogOpen,
+    setEditDialogOpen,
+    restockDialogOpen,
+    setRestockDialogOpen,
+    settingsDialogOpen,
+    setSettingsDialogOpen,
+    searchTerm,
+    setSearchTerm,
+    selectedCategory,
+    setSelectedCategory,
+    stockFilter,
+    setStockFilter,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    addProduct,
+    editProduct,
+    restockProduct,
+    handleDeleteProduct,
+    openEditDialog,
+    openRestockDialog,
+  } = useInventoryManagement();
 
-  const lowStockItems = products.filter(item => item.current_stock <= item.minimum_stock);
-  const outOfStockItems = products.filter(item => item.current_stock === 0);
-
-  const handleEditProduct = (productId: string, updates: any) => {
-    updateProduct({ id: productId, updates });
-    setEditDialogOpen(false);
-    setSelectedProduct(null);
-  };
-
-  const handleRestock = (quantity: number) => {
-    if (selectedProduct) {
-      updateProduct({
-        id: selectedProduct.id,
-        updates: {
-          current_stock: selectedProduct.current_stock + quantity
-        }
-      });
-      setRestockDialogOpen(false);
-      setSelectedProduct(null);
-    }
-  };
-
-  const handleDeleteProduct = (productId: string, productName: string) => {
-    if (window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
-      deleteProduct(productId);
-    }
-  };
-
-  const openEditDialog = (product: any) => {
-    setSelectedProduct(product);
-    setEditDialogOpen(true);
-  };
-
-  const openRestockDialog = (product: any) => {
-    setSelectedProduct(product);
-    setRestockDialogOpen(true);
-  };
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center h-64">
         <div className="text-lg">Loading inventory...</div>
       </div>
     );
   }
 
+  // Transform products to match DbProduct interface
+  const dbProducts: DbProduct[] = products.map(product => ({
+    id: product.id,
+    name: product.name,
+    unit_price: product.unit_price,
+    current_stock: product.current_stock,
+    minimum_stock: product.minimum_stock,
+    updated_at: product.updated_at || new Date().toISOString(),
+    categories: product.categories
+  }));
+
+  // Filter products based on search, category, and stock filters
+  const filteredProducts = dbProducts.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || 
+      (product.categories && product.categories.name === selectedCategory);
+    
+    let matchesStock = true;
+    if (stockFilter === 'low') {
+      matchesStock = product.current_stock <= product.minimum_stock;
+    } else if (stockFilter === 'out') {
+      matchesStock = product.current_stock === 0;
+    }
+
+    return matchesSearch && matchesCategory && matchesStock;
+  });
+
+  // Sort products
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    let aValue: string | number;
+    let bValue: string | number;
+
+    switch (sortBy) {
+      case 'name':
+        aValue = a.name;
+        bValue = b.name;
+        break;
+      case 'stock':
+        aValue = a.current_stock;
+        bValue = b.current_stock;
+        break;
+      case 'price':
+        aValue = a.unit_price;
+        bValue = b.unit_price;
+        break;
+      case 'updated':
+        aValue = a.updated_at;
+        bValue = b.updated_at;
+        break;
+      default:
+        return 0;
+    }
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+    }
+
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+
+    return 0;
+  });
+
+  const lowStockItems = dbProducts.filter(
+    product => product.current_stock <= product.minimum_stock
+  );
+
+  const handleAddProduct = async (productData: any) => {
+    await addProduct(productData);
+    setAddDialogOpen(false);
+  };
+
+  const handleEditProduct = async (productId: string, updates: any) => {
+    await editProduct(productId, updates);
+    setEditDialogOpen(false);
+  };
+
+  const handleRestock = async (quantity: number) => {
+    if (selectedProduct) {
+      await restockProduct(selectedProduct.id, quantity);
+      setRestockDialogOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Inventory Management</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSettingsDialogOpen(true)}
-        >
-          <Settings className="w-4 h-4 mr-2" />
-          Settings
-        </Button>
-      </div>
+      <InventoryStats products={sortedProducts} />
+      
+      <LowStockAlert lowStockItems={lowStockItems} />
 
-      <InventoryStats 
-        inventory={products}
-        lowStockItems={lowStockItems}
-        outOfStockItems={outOfStockItems}
+      <InventoryFilters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        stockFilter={stockFilter}
+        setStockFilter={setStockFilter}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        categories={categories}
+        onAddProduct={() => setAddDialogOpen(true)}
+        onOpenSettings={() => setSettingsDialogOpen(true)}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              {categoryOptions.map((category) => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category}
-                </Button>
-              ))}
-            </div>
-            <Button 
-              className="bg-teal-600 hover:bg-teal-700"
-              onClick={() => setAddDialogOpen(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       <InventoryTable
-        products={filteredProducts}
+        products={sortedProducts}
         onEditProduct={openEditDialog}
         onRestockProduct={openRestockDialog}
         onDeleteProduct={handleDeleteProduct}
       />
 
-      <LowStockAlert lowStockItems={lowStockItems} />
-
-      <AddProductDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-      />
-      
-      <EditProductDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        product={selectedProduct}
+      <InventoryDialogs
+        addDialogOpen={addDialogOpen}
+        setAddDialogOpen={setAddDialogOpen}
+        editDialogOpen={editDialogOpen}
+        setEditDialogOpen={setEditDialogOpen}
+        restockDialogOpen={restockDialogOpen}
+        setRestockDialogOpen={setRestockDialogOpen}
+        settingsDialogOpen={settingsDialogOpen}
+        setSettingsDialogOpen={setSettingsDialogOpen}
+        selectedProduct={selectedProduct}
+        onAddProduct={handleAddProduct}
         onEditProduct={handleEditProduct}
-      />
-      
-      <RestockDialog
-        open={restockDialogOpen}
-        onOpenChange={setRestockDialogOpen}
-        productName={selectedProduct?.name || ''}
-        currentStock={selectedProduct?.current_stock || 0}
         onRestock={handleRestock}
-      />
-
-      <SettingsDialog
-        open={settingsDialogOpen}
-        onOpenChange={setSettingsDialogOpen}
       />
     </div>
   );

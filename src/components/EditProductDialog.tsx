@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useCategories } from '@/hooks/useCategories';
 
 interface Product {
   id: string;
@@ -40,19 +41,6 @@ interface EditProductDialogProps {
   onEditProduct: (productId: string, updates: Partial<Product>) => void;
 }
 
-const predefinedCategories = [
-  'Beverages',
-  'Snacks',
-  'Noodles',
-  'Canned Goods',
-  'Household',
-  'Personal Care',
-  'Condiments',
-  'Rice & Grains',
-  'Frozen Foods',
-  'Others'
-];
-
 const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditProductDialogProps) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -63,6 +51,7 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
     description: ''
   });
   const { toast } = useToast();
+  const { categories } = useCategories();
 
   useEffect(() => {
     if (product) {
@@ -138,9 +127,9 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {predefinedCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

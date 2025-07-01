@@ -1,21 +1,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle } from 'lucide-react';
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  minStock: number;
-  category: string;
-  lastRestocked: string;
-  barcode?: string;
-  description?: string;
-}
+import { DbProduct } from '@/types/inventory';
 
 interface LowStockAlertProps {
-  lowStockItems: Product[];
+  lowStockItems: DbProduct[];
 }
 
 const LowStockAlert = ({ lowStockItems }: LowStockAlertProps) => {
@@ -35,7 +24,7 @@ const LowStockAlert = ({ lowStockItems }: LowStockAlertProps) => {
           {lowStockItems.map((item) => (
             <div key={item.id} className="bg-white p-3 rounded-lg border">
               <p className="font-medium">{item.name}</p>
-              <p className="text-sm text-gray-600">Current: {item.stock} | Min: {item.minStock}</p>
+              <p className="text-sm text-gray-600">Current: {item.current_stock} | Min: {item.minimum_stock}</p>
             </div>
           ))}
         </div>

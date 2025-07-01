@@ -20,18 +20,28 @@ const LoginForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Login error:', error);
+        
+        // Provide more specific error messages
+        let errorMessage = error.message;
+        if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please check your email and confirm your account before logging in.';
+        } else if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        }
+        
         toast({
           title: "Login Failed",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
-      } else {
+      } else if (data.user) {
         toast({
           title: "Login Successful",
           description: "Welcome back!",
@@ -39,9 +49,10 @@ const LoginForm = () => {
         navigate('/');
       }
     } catch (error) {
+      console.error('Unexpected login error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during login",
         variant: "destructive",
       });
     } finally {

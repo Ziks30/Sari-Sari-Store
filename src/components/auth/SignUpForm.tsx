@@ -22,10 +22,11 @@ const SignUpForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: fullName,
             phone: phone,
@@ -40,16 +41,29 @@ const SignUpForm = () => {
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "Sign Up Successful",
-          description: "Please check your email to verify your account",
-        });
-        navigate('/auth');
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+          toast({
+            title: "Sign Up Successful",
+            description: "Please check your email to verify your account before logging in",
+          });
+        } else {
+          toast({
+            title: "Sign Up Successful",
+            description: "Account created successfully! You can now log in.",
+          });
+        }
+        // Clear the form
+        setEmail('');
+        setPassword('');
+        setFullName('');
+        setPhone('');
       }
     } catch (error) {
+      console.error('Sign up error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "An unexpected error occurred during sign up",
         variant: "destructive",
       });
     } finally {
@@ -102,6 +116,7 @@ const SignUpForm = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>

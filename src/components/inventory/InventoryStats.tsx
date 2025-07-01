@@ -1,27 +1,22 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Package, AlertTriangle, TrendingDown } from 'lucide-react';
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  minStock: number;
-  category: string;
-  lastRestocked: string;
-  barcode?: string;
-  description?: string;
-}
+import { DbProduct } from '@/types/inventory';
 
 interface InventoryStatsProps {
-  inventory: Product[];
-  lowStockItems: Product[];
-  outOfStockItems: Product[];
+  products: DbProduct[];
 }
 
-const InventoryStats = ({ inventory, lowStockItems, outOfStockItems }: InventoryStatsProps) => {
-  const totalValue = inventory.reduce((total, item) => total + (item.price * item.stock), 0);
+const InventoryStats = ({ products }: InventoryStatsProps) => {
+  const lowStockItems = products.filter(
+    product => product.current_stock <= product.minimum_stock
+  );
+  
+  const outOfStockItems = products.filter(
+    product => product.current_stock === 0
+  );
+  
+  const totalValue = products.reduce((total, item) => total + (item.unit_price * item.current_stock), 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -30,7 +25,7 @@ const InventoryStats = ({ inventory, lowStockItems, outOfStockItems }: Inventory
           <div className="flex items-center space-x-2">
             <Package className="w-8 h-8 text-blue-600" />
             <div>
-              <p className="text-2xl font-bold">{inventory.length}</p>
+              <p className="text-2xl font-bold">{products.length}</p>
               <p className="text-sm text-gray-600">Total Products</p>
             </div>
           </div>
