@@ -11,9 +11,6 @@ interface ProductSearchControlsProps {
   selectedCategory: string;
   setSelectedCategory: (category: string) => void;
   categories: string[];
-  barcode: string;
-  setBarcode: (barcode: string) => void;
-  onBarcodeSearch: () => void;
   cashBorrowAmount: string;
   setCashBorrowAmount: (amount: string) => void;
   onAddCashBorrow: () => void;
@@ -25,35 +22,31 @@ const ProductSearchControls = ({
   selectedCategory,
   setSelectedCategory,
   categories,
-  barcode,
-  setBarcode,
-  onBarcodeSearch,
   cashBorrowAmount,
   setCashBorrowAmount,
   onAddCashBorrow
 }: ProductSearchControlsProps) => {
   return (
-    <Card className="mb-6 flex-shrink-0">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
+    <Card className="mb-4 flex-shrink-0">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center space-x-2 text-lg">
           <Search className="w-5 h-5" />
-          <span>Product Search & Controls</span>
+          <span>Product Search</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium">Search Products</label>
+      <CardContent className="space-y-3">
+        <div className="flex space-x-3">
+          <div className="flex-1">
             <Input
-              placeholder="Search by name or scan barcode..."
+              placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9"
             />
           </div>
-          <div>
-            <label className="text-sm font-medium">Category Filter</label>
+          <div className="w-48">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger>
+              <SelectTrigger className="h-9">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -67,40 +60,25 @@ const ProductSearchControls = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium">Barcode Scanner</label>
-            <div className="flex space-x-2">
-              <Input
-                placeholder="Scan or enter barcode..."
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-              />
-              <Button onClick={onBarcodeSearch} size="sm">
-                Add
-              </Button>
-            </div>
+        <div className="flex space-x-3">
+          <div className="flex-1">
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="Cash borrowing amount..."
+              value={cashBorrowAmount}
+              onChange={(e) => setCashBorrowAmount(e.target.value)}
+              className="h-9"
+            />
           </div>
-          <div>
-            <label className="text-sm font-medium">Cash Borrowing</label>
-            <div className="flex space-x-2">
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Enter cash amount..."
-                value={cashBorrowAmount}
-                onChange={(e) => setCashBorrowAmount(e.target.value)}
-              />
-              <Button 
-                onClick={onAddCashBorrow}
-                className="bg-orange-600 hover:bg-orange-700"
-                size="sm"
-              >
-                <DollarSign className="w-4 h-4 mr-2" />
-                Add Cash
-              </Button>
-            </div>
-          </div>
+          <Button 
+            onClick={onAddCashBorrow}
+            className="bg-orange-600 hover:bg-orange-700 h-9 px-4"
+            size="sm"
+          >
+            <DollarSign className="w-4 h-4 mr-2" />
+            Add Cash
+          </Button>
         </div>
       </CardContent>
     </Card>

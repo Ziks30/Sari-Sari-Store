@@ -54,7 +54,7 @@ const InventoryManagement = () => {
     unit_price: product.unit_price,
     current_stock: product.current_stock,
     minimum_stock: product.minimum_stock,
-    updated_at: product.updated_at || new Date().toISOString(),
+    updated_at: product.updated_at,
     categories: product.categories
   }));
 

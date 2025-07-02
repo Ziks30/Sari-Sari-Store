@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +14,8 @@ interface Product {
   category_id: string;
   description?: string;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
   categories?: {
     name: string;
   };

@@ -1,49 +1,38 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Brain, Package, Users, TrendingUp, Target } from 'lucide-react';
+import { Brain, Package, Users, TrendingUp, Target, AlertTriangle, TrendingDown } from 'lucide-react';
 
-interface MLInsight {
+interface Recommendation {
   type: string;
   message: string;
-  priority: string;
-  icon: React.ReactNode;
+  priority: 'High' | 'Medium' | 'Low';
+  icon: string;
 }
 
-const mlInsights: MLInsight[] = [
-  {
-    type: 'Stock Prediction',
-    message: 'Coca Cola 8oz will run out in 3 days based on current sales trend',
-    priority: 'High',
-    icon: <Package className="w-4 h-4" />,
-  },
-  {
-    type: 'Customer Behavior',
-    message: 'Customers buying noodles are 78% likely to also buy beverages',
-    priority: 'Medium',
-    icon: <Users className="w-4 h-4" />,
-  },
-  {
-    type: 'Sales Forecast',
-    message: 'Weekend sales expected to increase by 15% - stock up on snacks',
-    priority: 'Medium',
-    icon: <TrendingUp className="w-4 h-4" />,
-  },
-  {
-    type: 'Peak Day Alert',
-    message: 'Friday typically shows highest sales (₱4,200 avg) - prepare extra staff',
-    priority: 'Low',
-    icon: <Target className="w-4 h-4" />,
-  },
-];
+interface AIInsightsProps {
+  recommendations?: Recommendation[];
+}
 
-const AIInsights = () => {
+const AIInsights = ({ recommendations = [] }: AIInsightsProps) => {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'High': return 'destructive';
       case 'Medium': return 'secondary';
       case 'Low': return 'default';
       default: return 'default';
+    }
+  };
+
+  const getIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'Package': return <Package className="w-4 h-4" />;
+      case 'Users': return <Users className="w-4 h-4" />;
+      case 'TrendingUp': return <TrendingUp className="w-4 h-4" />;
+      case 'TrendingDown': return <TrendingDown className="w-4 h-4" />;
+      case 'Target': return <Target className="w-4 h-4" />;
+      case 'AlertTriangle': return <AlertTriangle className="w-4 h-4" />;
+      default: return <Brain className="w-4 h-4" />;
     }
   };
 
@@ -57,22 +46,30 @@ const AIInsights = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {mlInsights.map((insight, index) => (
-            <div key={index} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="text-purple-600">
-                    {insight.icon}
-                  </div>
-                  <span className="font-medium text-sm">{insight.type}</span>
-                </div>
-                <Badge variant={getPriorityColor(insight.priority) as any}>
-                  {insight.priority}
-                </Badge>
-              </div>
-              <p className="text-sm text-gray-700">{insight.message}</p>
+          {recommendations.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Brain className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>No insights available yet.</p>
+              <p className="text-sm">Add some sales data to get AI-powered recommendations.</p>
             </div>
-          ))}
+          ) : (
+            recommendations.map((insight, index) => (
+              <div key={index} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="text-purple-600">
+                      {getIcon(insight.icon)}
+                    </div>
+                    <span className="font-medium text-sm">{insight.type}</span>
+                  </div>
+                  <Badge variant={getPriorityColor(insight.priority) as any}>
+                    {insight.priority}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-700">{insight.message}</p>
+              </div>
+            ))
+          )}
         </div>
       </CardContent>
     </Card>
