@@ -338,7 +338,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      decrement_product_stock: {
+        Args: { product_id_input: string; quantity_input: number }
+        Returns: undefined
+      }
     }
     Enums: {
       payment_status: "pending" | "paid" | "overdue" | "cancelled"
