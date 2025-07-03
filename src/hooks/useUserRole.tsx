@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,17 +28,13 @@ export const useUserRole = () => {
           console.error('Error fetching user role:', error);
           setRole(null);
         } else {
-          // Map database roles to our UserRole type
-          const dbRole = data?.role;
-          console.log('Database role:', dbRole); // For debugging
-          
-          // Map database roles to frontend roles
-          if (dbRole === 'owner' || dbRole === 'manager') {
-            setRole('admin');
-          } else if (dbRole === 'cashier') {
-            setRole('cashier');
+          const dbRole = data?.role as UserRole;
+          console.log('Database role:', dbRole);
+
+          if (dbRole === 'admin' || dbRole === 'cashier') {
+            setRole(dbRole);
           } else {
-            setRole('cashier'); // Default fallback
+            setRole(null); // Unknown role fallback
           }
         }
       } catch (error) {
