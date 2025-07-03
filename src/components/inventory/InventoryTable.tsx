@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Package, Trash2 } from 'lucide-react';
 import { DbProduct } from '@/types/inventory';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface InventoryTableProps {
   products: DbProduct[];
@@ -18,6 +19,8 @@ const InventoryTable = ({
   onRestockProduct, 
   onDeleteProduct 
 }: InventoryTableProps) => {
+  const { isAdmin } = useUserRole();
+
   const getStockStatus = (item: DbProduct) => {
     if (item.current_stock === 0) return { label: 'Out of Stock', color: 'destructive' as const };
     if (item.current_stock <= item.minimum_stock) return { label: 'Low Stock', color: 'secondary' as const };
@@ -42,7 +45,7 @@ const InventoryTable = ({
                 <th className="text-left p-4 font-medium">Min Stock</th>
                 <th className="text-left p-4 font-medium">Status</th>
                 <th className="text-left p-4 font-medium">Last Updated</th>
-                <th className="text-left p-4 font-medium">Actions</th>
+                {isAdmin && <th className="text-left p-4 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -70,31 +73,33 @@ const InventoryTable = ({
                       <Badge variant={status.color}>{status.label}</Badge>
                     </td>
                     <td className="p-4 text-sm text-gray-600">{formatDate(product.updated_at)}</td>
-                    <td className="p-4">
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => onEditProduct(product)}
-                        >
-                          Edit
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="bg-teal-600 hover:bg-teal-700"
-                          onClick={() => onRestockProduct(product)}
-                        >
-                          Restock
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => onDeleteProduct(product.id, product.name)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    {isAdmin && (
+                      <td className="p-4">
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => onEditProduct(product)}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="bg-teal-600 hover:bg-teal-700"
+                            onClick={() => onRestockProduct(product)}
+                          >
+                            Restock
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => onDeleteProduct(product.id, product.name)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

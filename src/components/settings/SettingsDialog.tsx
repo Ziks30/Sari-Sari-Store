@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Shield } from 'lucide-react';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -17,6 +19,7 @@ interface SettingsDialogProps {
 
 const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const { user, signOut } = useAuth();
+  const { role, isAdmin } = useUserRole();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({
@@ -115,6 +118,15 @@ const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
         <div className="space-y-6">
           <div>
             <h3 className="text-lg font-medium mb-4">Profile Information</h3>
+            
+            <div className="mb-4 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Role:</span>
+              <Badge variant={isAdmin ? "default" : "secondary"}>
+                {role === 'admin' ? 'Administrator' : 'Cashier'}
+              </Badge>
+            </div>
+
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>

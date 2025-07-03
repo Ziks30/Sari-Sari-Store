@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, Settings } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Category {
   id: string;
@@ -41,6 +42,8 @@ const InventoryFilters = ({
   onAddProduct,
   onOpenSettings,
 }: InventoryFiltersProps) => {
+  const { isAdmin } = useUserRole();
+
   return (
     <Card>
       <CardHeader>
@@ -86,13 +89,15 @@ const InventoryFilters = ({
           </Select>
 
           <div className="flex space-x-2">
-            <Button 
-              className="bg-teal-600 hover:bg-teal-700"
-              onClick={onAddProduct}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
+            {isAdmin && (
+              <Button 
+                className="bg-teal-600 hover:bg-teal-700"
+                onClick={onAddProduct}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            )}
             <Button 
               variant="outline"
               onClick={onOpenSettings}
