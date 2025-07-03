@@ -19,7 +19,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldCheck, ShieldX } from 'lucide-react';
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
   const { role, isAdmin, loading } = useUserRole();
   const { salesAnalytics, productAnalytics, categoryAnalytics, isLoading: analyticsLoading } = useAnalytics();
 
@@ -31,26 +30,22 @@ const Dashboard = () => {
     );
   }
 
-  // Calculate KPI data from analytics
   const totalSales = salesAnalytics.reduce((sum, day) => sum + day.total_sales, 0);
   const totalItems = salesAnalytics.reduce((sum, day) => sum + day.total_items, 0);
   const avgDailySales = salesAnalytics.length > 0 ? totalSales / salesAnalytics.length : 0;
 
-  // Transform sales data for chart
   const salesChartData = salesAnalytics.slice(-7).map(day => ({
     day: new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
     sales: day.total_sales,
     items: day.total_items
   }));
 
-  // Transform category data for chart
   const categoryChartData = categoryAnalytics.slice(0, 5).map((cat, index) => ({
     category: cat.categories?.name || 'Unknown',
     sales: cat.total_sales,
     color: ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index] || '#6b7280'
   }));
 
-  // Transform product data for top products
   const topProductsData = productAnalytics
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5)
@@ -65,7 +60,7 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Store Management System</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Store Analytics Dashboard</h1>
             <div className="flex items-center gap-2 mt-2">
               <Badge variant={isAdmin ? "default" : "secondary"} className="flex items-center gap-1">
                 {isAdmin ? <ShieldCheck className="w-3 h-3" /> : <ShieldX className="w-3 h-3" />}
@@ -82,73 +77,41 @@ const Dashboard = () => {
           <Alert className="mb-6">
             <ShieldX className="h-4 w-4" />
             <AlertDescription>
-              You are logged in as a Cashier. You can view inventory but cannot modify it. Contact an administrator for inventory changes.
+              You are logged in as a Cashier. You can view analytics but cannot modify data. Contact an administrator for changes.
             </AlertDescription>
           </Alert>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="pos">POS</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="utang">Utang</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-6">
-            {analyticsLoading ? (
-              <div className="text-center py-8">Loading analytics...</div>
-            ) : (
-              <>
+      <div className="p-4 lg:p-8">
+        {analyticsLoading ? (
+          <div className="text-center py-8">Loading analytics...</div>
+          ) : (
+            <div className="space-y-8"> {/* Adds vertical space between sections */}
+              <div className="px-2 lg:px-0">
                 <KPICards 
                   totalSales={totalSales}
                   totalItems={totalItems}
                   avgDailySales={avgDailySales}
                 />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <SalesChart data={salesChartData} />
-                  <CategoryChart data={categoryChartData} />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <TopProducts products={topProductsData} />
-                  <AIInsights />
-                </div>
-              </>
-            )}
-          </TabsContent>
+              </div>
 
-          <TabsContent value="pos">
-            <POSInterface />
-          </TabsContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 lg:px-0">
+                <SalesChart data={salesChartData} />
+                <CategoryChart data={categoryChartData} />
+              </div>
 
-          <TabsContent value="inventory">
-            <InventoryManagement />
-          </TabsContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 lg:px-0">
+                <TopProducts products={topProductsData} />
+                <AIInsights />
+              </div>
+            </div>
+          )}
+      </div>
 
-          <TabsContent value="utang">
-            <UtangManagement />
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <Card>
-              <CardHeader>
-                <CardTitle>Advanced Analytics</CardTitle>
-                <CardDescription>
-                  Detailed analytics and reporting features
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <p className="text-gray-500">Advanced analytics coming soon...</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
     </div>
   );
 };
 
 export default Dashboard;
+
