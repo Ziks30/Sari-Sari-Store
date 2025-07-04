@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useProducts } from '@/hooks/useProducts';
@@ -39,12 +38,14 @@ export const useInventoryManagement = () => {
 
   const handleEditProduct = (productId: string, updates: any) => {
     const dbUpdates: any = {};
-    
+
     if (updates.name) dbUpdates.name = updates.name;
     if (updates.price) dbUpdates.unit_price = updates.price;
+    if (updates.stock !== undefined) dbUpdates.current_stock = updates.stock; // ✅ Add this
     if (updates.minStock) dbUpdates.minimum_stock = updates.minStock;
     if (updates.description) dbUpdates.description = updates.description;
-    
+    if (updates.stock !== undefined) dbUpdates.current_stock = updates.stock;
+
     if (updates.category) {
       const category = categories.find(cat => cat.name === updates.category);
       dbUpdates.category_id = category?.id || null;
@@ -55,12 +56,13 @@ export const useInventoryManagement = () => {
     setSelectedProduct(null);
   };
 
+
   const handleRestock = (quantity: number) => {
     if (selectedProduct) {
       updateProduct({
         id: selectedProduct.id,
         updates: {
-          current_stock: selectedProduct.stock + quantity
+          current_stock: quantity  // <-- Use quantity as the new stock
         }
       });
       setRestockDialogOpen(false);
@@ -131,15 +133,12 @@ export const useInventoryManagement = () => {
     editProduct: handleEditProduct,
     handleRestock,
     restockProduct: (productId: string, quantity: number) => {
-      const product = products.find(p => p.id === productId);
-      if (product) {
-        updateProduct({
-          id: productId,
-          updates: {
-            current_stock: product.current_stock + quantity
-          }
-        });
-      }
+      updateProduct({
+        id: productId,
+        updates: {
+          current_stock: quantity  // <-- Updated here as well
+        }
+      });
     },
     handleDeleteProduct,
     openEditDialog,
