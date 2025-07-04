@@ -1,12 +1,13 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, CreditCard, AlertCircle, CheckCircle, Clock, Plus, Eye, Receipt } from 'lucide-react';
+import { Search, CreditCard, AlertCircle, CheckCircle, Clock, Plus, Eye, Receipt, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
 
 export interface UtangTransaction {
   id: string;
@@ -22,7 +23,7 @@ export interface UtangTransaction {
   }>;
   date: string;
   dueDate?: string;
-  status: 'active' | 'paid' | 'overdue';
+ status: 'active' | 'paid' | 'overdue' | 'cancelled'
   notes?: string;
 }
 
@@ -41,7 +42,7 @@ interface UtangCustomer {
 // Mock data - in real app this would come from a database
 const mockUtangData: UtangCustomer[] = [
   {
-    id: '1',
+    id: 'b3b1a2e0-1c2d-4e5f-8a7b-9c0d1e2f3a4b', // valid UUID
     name: 'Maria Santos',
     totalUtang: 450,
     lastTransaction: '2024-06-20',
@@ -51,7 +52,7 @@ const mockUtangData: UtangCustomer[] = [
     notes: 'Regular customer, always pays on time',
     transactions: [
       {
-        id: 'tx1',
+        id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', // valid UUID
         customerName: 'Maria Santos',
         amount: 450,
         type: 'goods',
@@ -66,7 +67,7 @@ const mockUtangData: UtangCustomer[] = [
     ]
   },
   {
-    id: '2',
+    id: 'c4d5e6f7-8a9b-0c1d-2e3f-4a5b6c7d8e9f', // valid UUID
     name: 'Juan dela Cruz',
     totalUtang: 1200,
     lastTransaction: '2024-06-15',
@@ -76,7 +77,7 @@ const mockUtangData: UtangCustomer[] = [
     notes: 'Sometimes late on payments',
     transactions: [
       {
-        id: 'tx2',
+        id: 'd7e8f9a0-b1c2-3d4e-5f6a-7b8c9d0e1f2a', // valid UUID
         customerName: 'Juan dela Cruz',
         amount: 800,
         type: 'goods',
@@ -84,7 +85,7 @@ const mockUtangData: UtangCustomer[] = [
         status: 'active'
       },
       {
-        id: 'tx3',
+        id: 'e1f2a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b', // valid UUID
         customerName: 'Juan dela Cruz',
         amount: 400,
         type: 'cash',
@@ -164,9 +165,11 @@ const UtangManagement = () => {
   const riskLevels = ['All', 'Low', 'Medium', 'High'];
 
   const filteredCustomers = utangData.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const search = searchTerm.toLowerCase();
+    const matchesName = customer.name.toLowerCase().includes(search);
+    const matchesPhone = customer.phone ? customer.phone.toLowerCase().includes(search) : false;
     const matchesRisk = selectedRisk === 'All' || customer.riskLevel === selectedRisk;
-    return matchesSearch && matchesRisk;
+    return (matchesName || matchesPhone) && matchesRisk;
   });
 
   const totalUtang = utangData.reduce((sum, customer) => sum + customer.totalUtang, 0);
@@ -201,19 +204,73 @@ const UtangManagement = () => {
     return daysSince;
   };
 
-  const recordPayment = (customerId: string, amount: number) => {
-    setUtangData(prevData => 
-      prevData.map(customer => 
-        customer.id === customerId 
-          ? { ...customer, totalUtang: Math.max(0, customer.totalUtang - amount) }
-          : customer
-      )
-    );
+  const recordPayment = async (customerId: string, amount: number) => {
+  const now = new Date().toISOString();
+
+  // Step 1: Update all "pending" or "overdue" credits to "paid"
+  const { error: updateError } = await supabase
+    .from('credits')
+    .update({
+      status: 'paid',
+      paid_date: now,
+      updated_at: now,
+    })
+    .eq('customer_id', customerId)
+    .in('status', ['pending', 'overdue']);
+
+  if (updateError) {
     toast({
-      title: "Payment Recorded",
-      description: `Payment of ₱${amount.toFixed(2)} has been recorded`,
+      title: 'Payment Update Failed',
+      description: updateError.message,
+      variant: 'destructive',
     });
-  };
+    return;
+  }
+
+  // Step 2: Fetch updated credits to reflect changes in UI
+  const { data: updatedCredits, error: fetchError } = await supabase
+    .from('credits')
+    .select('*')
+    .eq('customer_id', customerId);
+
+  if (fetchError || !updatedCredits) {
+    toast({
+      title: 'Fetch Error',
+      description: fetchError?.message || 'Unable to retrieve updated credits.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  // Step 3: Update state with filtered transactions and updated total
+  setUtangData(prevData =>
+    prevData.map(customer =>
+      customer.id === customerId
+        ? {
+            ...customer,
+            totalUtang: updatedCredits
+              .filter(c => c.status === 'pending' || c.status === 'overdue')
+              .reduce((sum, c) => sum + (c.amount || 0), 0),
+            transactions: updatedCredits.map(c => ({
+              id: c.id,
+              customerName: customer.name,
+              amount: c.amount,
+              type: (c as any).type || 'goods', // if you store `type` in another table, adjust this
+              date: c.created_at,
+              status: c.status as 'active' | 'paid' | 'overdue' | 'cancelled',
+              notes: c.notes || undefined,
+            })),
+          }
+        : customer
+    )
+  );
+
+  toast({
+    title: 'Payment Recorded',
+    description: `Marked ₱${amount.toLocaleString()} as paid for this customer.`,
+  });
+};
+
 
   return (
     <div className="space-y-6">
@@ -409,6 +466,86 @@ const UtangManagement = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* View Details Modal */}
+      {selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              onClick={() => setSelectedCustomer(null)}
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-4 mb-4">
+              <Avatar>
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
+                  {selectedCustomer.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
+                <p className="text-sm text-gray-600">{selectedCustomer.phone}</p>
+                {selectedCustomer.address && (
+                  <p className="text-sm text-gray-600">{selectedCustomer.address}</p>
+                )}
+              </div>
+              <Badge variant={getRiskColor(selectedCustomer.riskLevel) as any} className="ml-auto flex items-center space-x-1">
+                {getRiskIcon(selectedCustomer.riskLevel)}
+                <span>{selectedCustomer.riskLevel}</span>
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-xs text-gray-500">Total Utang</p>
+                <p className="text-lg font-bold text-red-600">₱{selectedCustomer.totalUtang.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Last Transaction</p>
+                <p className="text-sm">{getDaysSinceTransaction(selectedCustomer.lastTransaction)} days ago</p>
+              </div>
+            </div>
+            {selectedCustomer.notes && (
+              <div className="mb-2">
+                <p className="text-xs text-gray-500">Notes</p>
+                <p className="text-sm text-gray-800">{selectedCustomer.notes}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Transactions</p>
+              <div className="max-h-40 overflow-y-auto border rounded">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 text-left">Date</th>
+                      <th className="p-2 text-left">Amount</th>
+                      <th className="p-2 text-left">Type</th>
+                      <th className="p-2 text-left">Status</th>
+                      <th className="p-2 text-left">Items</th>
+                      <th className="p-2 text-left">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedCustomer.transactions.map(tx => (
+                      <tr key={tx.id} className="border-b">
+                        <td className="p-2">{tx.date}</td>
+                        <td className="p-2">₱{tx.amount.toLocaleString()}</td>
+                        <td className="p-2 capitalize">{tx.type}</td>
+                        <td className="p-2 capitalize">{tx.status}</td>
+                        <td className="p-2">
+                          {tx.items ? tx.items.map(item => `${item.name} x${item.quantity}`).join(', ') : '-'}
+                        </td>
+                        <td className="p-2">{tx.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
