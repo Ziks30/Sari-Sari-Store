@@ -11,14 +11,17 @@ export const fetchSalesAnalytics = async () => {
         total_price
       )
     `)
-    .order('created_at', { ascending: false })
     .limit(100);
 
-  console.log('SALES DATA:', salesData, salesError);
+  if (salesError) {
+    console.error('Sales analytics error:', salesError);
+    throw salesError;
+  }
+  console.log('SALES DATA:', salesData);
 
-  if (salesError) throw salesError;
   const result = transformSalesToDailyAnalytics(salesData || []);
   console.log('TRANSFORMED SALES ANALYTICS:', result);
+
   return result;
 };
 
@@ -36,13 +39,19 @@ export const fetchProductAnalytics = async () => {
         minimum_stock
       )
     `)
-    .order('sales.created_at', { ascending: false })
     .limit(200);
 
-  console.log('PRODUCT DATA:', productData, productError);
+  if (productError) {
+    console.error('Product analytics error:', productError);
+    throw productError;
+  }
+  console.log('PRODUCT DATA:', productData);
 
-  if (productError) throw productError;
-  const result = transformProductAnalytics(productData || []);
+  const sorted = (productData || []).sort((a, b) =>
+    new Date(a.sales?.created_at || 0).getTime() - new Date(b.sales?.created_at || 0).getTime()
+  );
+
+  const result = transformProductAnalytics(sorted);
   console.log('TRANSFORMED PRODUCT ANALYTICS:', result);
   return result;
 };
@@ -62,13 +71,19 @@ export const fetchCategoryAnalytics = async () => {
         )
       )
     `)
-    .order('sales.created_at', { ascending: false })
     .limit(150);
 
-  console.log('CATEGORY DATA:', categoryData, categoryError);
+  if (categoryError) {
+    console.error('Category analytics error:', categoryError);
+    throw categoryError;
+  }
+  console.log('CATEGORY DATA:', categoryData);
 
-  if (categoryError) throw categoryError;
-  const result = transformCategoryAnalytics(categoryData || []);
+  const sorted = (categoryData || []).sort((a, b) =>
+    new Date(a.sales?.created_at || 0).getTime() - new Date(b.sales?.created_at || 0).getTime()
+  );
+
+  const result = transformCategoryAnalytics(sorted);
   console.log('TRANSFORMED CATEGORY ANALYTICS:', result);
   return result;
 };

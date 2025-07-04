@@ -1,9 +1,8 @@
-
+import type { Product } from '@/types/product';
 import AddProductDialog from '@/components/AddProductDialog';
 import EditProductDialog from '@/components/EditProductDialog';
 import RestockDialog from '@/components/RestockDialog';
 import SettingsDialog from '@/components/settings/SettingsDialog';
-import { EditProduct } from '@/types/inventory';
 
 interface InventoryDialogsProps {
   addDialogOpen: boolean;
@@ -14,7 +13,7 @@ interface InventoryDialogsProps {
   setRestockDialogOpen: (open: boolean) => void;
   settingsDialogOpen: boolean;
   setSettingsDialogOpen: (open: boolean) => void;
-  selectedProduct: EditProduct | null;
+  selectedProduct: Product | null;
   onAddProduct: (productData: any) => void;
   onEditProduct: (productId: string, updates: any) => void;
   onRestock: (quantity: number) => void;
@@ -41,19 +40,19 @@ const InventoryDialogs = ({
         onOpenChange={setAddDialogOpen}
         onAddProduct={onAddProduct}
       />
-      
+
       <EditProductDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         product={selectedProduct}
         onEditProduct={onEditProduct}
       />
-      
+
       <RestockDialog
         open={restockDialogOpen}
         onOpenChange={setRestockDialogOpen}
         productName={selectedProduct?.name || ''}
-        currentStock={selectedProduct?.stock || 0}
+        currentStock={selectedProduct?.current_stock || 0}
         onRestock={onRestock}
       />
 

@@ -1,4 +1,3 @@
-
 export interface ProductVariant {
   name: string;
   price: string;
@@ -24,4 +23,17 @@ export interface AddProductData {
   barcode?: string;
   description?: string;
   variants?: ProductVariant[];
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  current_stock: number;
+  minimum_stock: number;
+  category: string;
+  barcode?: string;
+  description?: string;
+  variants?: ProductVariant[];
+  lastRestocked?: string;
 }

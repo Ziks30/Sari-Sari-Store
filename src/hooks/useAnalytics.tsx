@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -54,15 +53,18 @@ export const useAnalytics = () => {
         .order('created_at', { ascending: false })
         .limit(30);
 
+      console.log('SALES RAW:', data, error);
       if (error) throw error;
 
       // Transform sales data to daily analytics
       const dailyMap = new Map();
-      
-      data.forEach(sale => {
+      (data || []).forEach(sale => {
+        if (!sale?.created_at) return;
         const date = new Date(sale.created_at).toISOString().split('T')[0];
-        const totalItems = sale.sale_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
-        
+        const totalItems = Array.isArray(sale.sale_items)
+          ? sale.sale_items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
+          : 0;
+
         if (!dailyMap.has(date)) {
           dailyMap.set(date, {
             id: date,
@@ -72,14 +74,16 @@ export const useAnalytics = () => {
             total_transactions: 0
           });
         }
-        
+
         const dayData = dailyMap.get(date);
-        dayData.total_sales += Number(sale.total_amount);
+        dayData.total_sales += Number(sale.total_amount) || 0;
         dayData.total_items += totalItems;
         dayData.total_transactions += 1;
       });
 
-      return Array.from(dailyMap.values()) as SalesAnalytics[];
+      const result = Array.from(dailyMap.values()) as SalesAnalytics[];
+      console.log('SALES ANALYTICS:', result);
+      return result;
     },
   });
 
@@ -94,7 +98,7 @@ export const useAnalytics = () => {
         .from('sale_items')
         .select(`
           *,
-          sales!inner (
+          sales (
             created_at
           ),
           products (
@@ -105,15 +109,16 @@ export const useAnalytics = () => {
         `)
         .order('sales.created_at', { ascending: false });
 
+      console.log('PRODUCTS RAW:', data, error);
       if (error) throw error;
 
       // Transform to product analytics format
       const productMap = new Map();
-      
-      data.forEach((item: any) => {
+      (data || []).forEach((item: any) => {
+        if (!item?.sales?.created_at || !item.products) return;
         const date = new Date(item.sales.created_at).toISOString().split('T')[0];
         const key = `${item.product_id}-${date}`;
-        
+
         if (!productMap.has(key)) {
           productMap.set(key, {
             id: key,
@@ -124,13 +129,15 @@ export const useAnalytics = () => {
             products: item.products
           });
         }
-        
+
         const productData = productMap.get(key);
-        productData.quantity_sold += item.quantity;
-        productData.revenue += Number(item.total_price);
+        productData.quantity_sold += item.quantity || 0;
+        productData.revenue += Number(item.total_price) || 0;
       });
 
-      return Array.from(productMap.values()).slice(0, 100) as ProductSalesAnalytics[];
+      const result = Array.from(productMap.values()).slice(0, 100) as ProductSalesAnalytics[];
+      console.log('PRODUCT ANALYTICS:', result);
+      return result;
     },
   });
 
@@ -145,30 +152,28 @@ export const useAnalytics = () => {
         .from('sale_items')
         .select(`
           *,
-          sales!inner (
+          sales (
             created_at
           ),
-          products!inner (
+          products (
             category_id,
             categories (
               name
             )
           )
         `)
-        .not('products.category_id', 'is', null)
         .order('sales.created_at', { ascending: false });
 
+      console.log('CATEGORIES RAW:', data, error);
       if (error) throw error;
 
       // Transform to category analytics format
       const categoryMap = new Map();
-      
-      data.forEach((item: any) => {
-        if (!item.products?.category_id) return;
-        
+      (data || []).forEach((item: any) => {
+        if (!item?.sales?.created_at || !item.products?.category_id) return;
         const date = new Date(item.sales.created_at).toISOString().split('T')[0];
         const key = `${item.products.category_id}-${date}`;
-        
+
         if (!categoryMap.has(key)) {
           categoryMap.set(key, {
             id: key,
@@ -179,13 +184,15 @@ export const useAnalytics = () => {
             categories: item.products.categories
           });
         }
-        
+
         const categoryData = categoryMap.get(key);
-        categoryData.total_sales += Number(item.total_price);
-        categoryData.total_items += item.quantity;
+        categoryData.total_sales += Number(item.total_price) || 0;
+        categoryData.total_items += item.quantity || 0;
       });
 
-      return Array.from(categoryMap.values()).slice(0, 50) as CategorySalesAnalytics[];
+      const result = Array.from(categoryMap.values()).slice(0, 50) as CategorySalesAnalytics[];
+      console.log('CATEGORY ANALYTICS:', result);
+      return result;
     },
   });
 
