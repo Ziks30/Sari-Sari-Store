@@ -1,17 +1,16 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Activity, AlertTriangle, TrendingUp, Package } from 'lucide-react';
+import { RefreshCw, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
 import { useRealtimeAnalytics } from '@/hooks/useRealtimeAnalytics';
-import KPICards from './dashboard/KPICards';
-import SalesChart from './dashboard/SalesChart';
-import CategoryChart from './dashboard/CategoryChart';
-import TopProducts from './dashboard/TopProducts';
-import RealtimeActivityFeed from './analytics/RealtimeActivityFeed';
-import LowStockAlert from './inventory/LowStockAlert';
-import { useProducts } from '@/hooks/useProducts';
+import KPICards from '../dashboard/KPICards';
+import SalesChart from '../dashboard/SalesChart';
+import CategoryChart from '../dashboard/CategoryChart';
+import TopProducts from '../dashboard/TopProducts';
+import RealtimeActivityFeed from './RealtimeActivityFeed';
 
-const Dashboard = () => {
+const AnalyticsDashboard = () => {
   const { 
     salesAnalytics, 
     productAnalytics, 
@@ -19,15 +18,13 @@ const Dashboard = () => {
     isLoading, 
     refreshAnalytics 
   } = useRealtimeAnalytics();
-  
-  const { products } = useProducts();
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center space-x-2">
           <Activity className="w-6 h-6 animate-pulse" />
-          <div className="text-lg">Loading analytics dashboard...</div>
+          <div className="text-lg">Loading real-time analytics...</div>
         </div>
       </div>
     );
@@ -82,23 +79,18 @@ const Dashboard = () => {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
 
-  // Get low stock items for decision tree alerts
-  const lowStockItems = (products || []).filter(product => 
-    product.current_stock <= product.minimum_stock
-  );
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+          <h2 className="text-2xl font-bold text-gray-900">Real-Time Analytics</h2>
           <div className="flex items-center space-x-2 mt-1">
             <Badge variant="outline" className="flex items-center space-x-1">
               <Activity className="w-3 h-3 text-green-500" />
-              <span>Real-time Analytics</span>
+              <span>Live Updates</span>
             </Badge>
             <p className="text-sm text-gray-600">
-              Data updates automatically with new transactions
+              Analytics update automatically when new transactions occur
             </p>
           </div>
         </div>
@@ -113,40 +105,28 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* Low Stock Alert - Decision Tree based */}
-      {lowStockItems.length > 0 && (
-        <LowStockAlert lowStockItems={lowStockItems} />
-      )}
-
-      {/* KPI Cards - Time Series Aggregation */}
       <KPICards 
         totalSales={totalSales}
         totalItems={totalItems}
         avgDailySales={avgDailySales}
       />
 
-      {/* Main Analytics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Charts */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Time Series Sales Chart */}
           <SalesChart data={salesChartData} />
-          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <CategoryChart data={categoryChartData} />
             <TopProducts products={topProductsData} />
           </div>
         </div>
         
-        {/* Right Column - Activity & Alerts */}
         <div className="space-y-6">
           <RealtimeActivityFeed />
           
-          {/* Analytics Summary Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5" />
+                <BarChart3 className="w-5 h-5" />
                 <span>Analytics Summary</span>
               </CardTitle>
               <CardDescription>Key metrics overview</CardDescription>
@@ -164,12 +144,6 @@ const Dashboard = () => {
                 <span className="text-sm font-medium">Categories Active</span>
                 <Badge variant="secondary">{categoryAnalytics?.length || 0}</Badge>
               </div>
-              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                <span className="text-sm font-medium">Low Stock Items</span>
-                <Badge variant={lowStockItems.length > 0 ? "destructive" : "secondary"}>
-                  {lowStockItems.length}
-                </Badge>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -178,4 +152,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default AnalyticsDashboard;

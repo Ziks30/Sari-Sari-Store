@@ -179,7 +179,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
@@ -187,7 +187,7 @@ export type Database = {
           full_name: string
           id: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
@@ -195,7 +195,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Relationships: []
@@ -344,6 +344,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "cashier"
       payment_status: "pending" | "paid" | "overdue" | "cancelled"
       transaction_type: "sale" | "return" | "adjustment"
       user_role: "owner" | "cashier" | "manager"
@@ -462,6 +463,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "cashier"],
       payment_status: ["pending", "paid", "overdue", "cancelled"],
       transaction_type: ["sale", "return", "adjustment"],
       user_role: ["owner", "cashier", "manager"],

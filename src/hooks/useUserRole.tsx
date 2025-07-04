@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-
-type UserRole = 'admin' | 'cashier' | null;
+import { useToast } from '@/hooks/use-toast';
 
 export const useUserRole = () => {
-  const { user } = useAuth();
-  const [role, setRole] = useState<UserRole>(null);
+  const [role, setRole] = useState<'admin' | 'cashier' | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      if (!user) {
-        setRole(null);
-        setLoading(false);
-        return;
-      }
-
       try {
-        const { data, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setRole(null);
+          setLoading(false);
+          return;
+        }
+
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
@@ -26,35 +26,38 @@ export const useUserRole = () => {
 
         if (error) {
           console.error('Error fetching user role:', error);
-          setRole(null);
-        } else {
-          const dbRole = data?.role as UserRole;
-          console.log('Database role:', dbRole);
-
-          if (dbRole === 'admin' || dbRole === 'cashier') {
-            setRole(dbRole);
-          } else {
-            setRole(null); // Unknown role fallback
-          }
+          toast({
+            title: "Error",
+            description: "Failed to fetch user role",
+            variant: "destructive",
+          });
+          return;
         }
+
+        // Map database roles to frontend roles
+        const mappedRole = profile?.role === 'admin' ? 'admin' : 'cashier';
+        setRole(mappedRole);
+        
       } catch (error) {
-        console.error('Error fetching user role:', error);
-        setRole(null);
+        console.error('Error in fetchUserRole:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch user role",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserRole();
-  }, [user]);
+  }, [toast]);
 
   const isAdmin = role === 'admin';
-  const isCashier = role === 'cashier';
 
   return {
     role,
     isAdmin,
-    isCashier,
-    loading,
+    loading
   };
 };

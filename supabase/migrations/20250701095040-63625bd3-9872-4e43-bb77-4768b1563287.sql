@@ -1,7 +1,4 @@
 
--- First, let's ensure we have comprehensive sample data in Supabase
--- Add more sample products to better represent a typical sari-sari store inventory
-
 -- Add more beverages
 INSERT INTO products (name, unit_price, cost_price, current_stock, minimum_stock, maximum_stock, category_id, description) VALUES
 ('Sprite 8oz', 15.00, 12.00, 20, 10, 100, (SELECT id FROM categories WHERE name = 'Beverages' LIMIT 1), 'Lemon-lime soda 8oz bottle'),

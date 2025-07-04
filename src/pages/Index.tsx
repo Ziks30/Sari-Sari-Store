@@ -1,9 +1,11 @@
+
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import POSInterface from '@/components/POSInterface';
 import InventoryManagement from '@/components/InventoryManagement';
 import Dashboard from '@/components/Dashboard';
+import AnalyticsDashboard from '@/components/analytics/AnalyticsDashboard';
 import { ShoppingCart, Package, Users, BarChart3 } from 'lucide-react';
 import UtangManagement from '@/components/UtangManagement';
 
@@ -49,9 +51,9 @@ const Index = () => {
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Utang</span>
             </TabsTrigger>
-            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
+            <TabsTrigger value="analytics" className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Dashboard</span>
+              <span className="hidden sm:inline">Analytics</span>
             </TabsTrigger>
           </TabsList>
 
@@ -67,7 +69,7 @@ const Index = () => {
             <UtangManagement />
           </TabsContent>
 
-          <TabsContent value="dashboard">
+          <TabsContent value="analytics">
             <Dashboard />
           </TabsContent>
         </Tabs>

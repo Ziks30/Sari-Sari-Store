@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-interface SalesAnalytics {
+export interface SalesAnalytics {
   id: string;
   date: string;
   total_sales: number;
@@ -10,7 +10,7 @@ interface SalesAnalytics {
   total_transactions: number;
 }
 
-interface ProductSalesAnalytics {
+export interface ProductSalesAnalytics {
   id: string;
   product_id: string;
   date: string;
@@ -23,7 +23,7 @@ interface ProductSalesAnalytics {
   };
 }
 
-interface CategorySalesAnalytics {
+export interface CategorySalesAnalytics {
   id: string;
   category_id: string;
   date: string;
