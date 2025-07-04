@@ -14,8 +14,12 @@ export const fetchSalesAnalytics = async () => {
     .order('created_at', { ascending: false })
     .limit(100);
 
+  console.log('SALES DATA:', salesData, salesError);
+
   if (salesError) throw salesError;
-  return transformSalesToDailyAnalytics(salesData || []);
+  const result = transformSalesToDailyAnalytics(salesData || []);
+  console.log('TRANSFORMED SALES ANALYTICS:', result);
+  return result;
 };
 
 export const fetchProductAnalytics = async () => {
@@ -23,7 +27,7 @@ export const fetchProductAnalytics = async () => {
     .from('sale_items')
     .select(`
       *,
-      sales!inner (
+      sales (
         created_at
       ),
       products (
@@ -35,8 +39,12 @@ export const fetchProductAnalytics = async () => {
     .order('sales.created_at', { ascending: false })
     .limit(200);
 
+  console.log('PRODUCT DATA:', productData, productError);
+
   if (productError) throw productError;
-  return transformProductAnalytics(productData || []);
+  const result = transformProductAnalytics(productData || []);
+  console.log('TRANSFORMED PRODUCT ANALYTICS:', result);
+  return result;
 };
 
 export const fetchCategoryAnalytics = async () => {
@@ -44,20 +52,23 @@ export const fetchCategoryAnalytics = async () => {
     .from('sale_items')
     .select(`
       *,
-      sales!inner (
+      sales (
         created_at
       ),
-      products!inner (
+      products (
         category_id,
         categories (
           name
         )
       )
     `)
-    .not('products.category_id', 'is', null)
     .order('sales.created_at', { ascending: false })
     .limit(150);
 
+  console.log('CATEGORY DATA:', categoryData, categoryError);
+
   if (categoryError) throw categoryError;
-  return transformCategoryAnalytics(categoryData || []);
+  const result = transformCategoryAnalytics(categoryData || []);
+  console.log('TRANSFORMED CATEGORY ANALYTICS:', result);
+  return result;
 };

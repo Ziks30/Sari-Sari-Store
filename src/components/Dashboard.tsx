@@ -7,6 +7,7 @@ import KPICards from './dashboard/KPICards';
 import SalesChart from './dashboard/SalesChart';
 import CategoryChart from './dashboard/CategoryChart';
 import TopProducts from './dashboard/TopProducts';
+import TopProfitableProducts from './dashboard/TopProfitableProducts';
 import RealtimeActivityFeed from './analytics/RealtimeActivityFeed';
 import LowStockAlert from './inventory/LowStockAlert';
 import { useProducts } from '@/hooks/useProducts';
@@ -16,6 +17,7 @@ const Dashboard = () => {
     salesAnalytics, 
     productAnalytics, 
     categoryAnalytics, 
+    profitAnalytics, 
     isLoading, 
     refreshAnalytics 
   } = useRealtimeAnalytics();
@@ -33,19 +35,21 @@ const Dashboard = () => {
     );
   }
 
-  // Calculate KPI data from analytics
+  // KPI Calculator para sa analytics
   const totalSales = salesAnalytics?.reduce((sum, day) => sum + day.total_sales, 0) || 0;
   const totalItems = salesAnalytics?.reduce((sum, day) => sum + day.total_items, 0) || 0;
   const avgDailySales = salesAnalytics?.length > 0 ? totalSales / salesAnalytics.length : 0;
 
-  // Transform sales data for chart (last 7 days)
+  const totalProfit = profitAnalytics?.reduce((sum, prod) => sum + prod.profit, 0) || 0;
+  const lowProfitProducts = (profitAnalytics || []).filter(p => p.profit <= 0);
+
   const salesChartData = (salesAnalytics || []).slice(-7).reverse().map(day => ({
     day: new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
     sales: day.total_sales,
     items: day.total_items
   }));
 
-  // Transform category data for chart (top 5)
+  // Category Data
   const categoryChartData = (categoryAnalytics || [])
     .reduce((acc, cat) => {
       const existing = acc.find(item => item.category === cat.categories?.name);
@@ -63,7 +67,7 @@ const Dashboard = () => {
     .sort((a, b) => b.sales - a.sales)
     .slice(0, 5);
 
-  // Transform product data for top products (top 5)
+  // Top Products
   const topProductsData = (productAnalytics || [])
     .reduce((acc, product) => {
       const existing = acc.find(item => item.name === product.products?.name);
@@ -82,7 +86,7 @@ const Dashboard = () => {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
 
-  // Get low stock items for decision tree alerts
+  // DCSNTR Alert
   const lowStockItems = (products || []).filter(product => 
     product.current_stock <= product.minimum_stock
   );
@@ -113,36 +117,53 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* Low Stock Alert - Decision Tree based */}
       {lowStockItems.length > 0 && (
         <LowStockAlert lowStockItems={lowStockItems} />
       )}
 
-      {/* KPI Cards - Time Series Aggregation */}
       <KPICards 
         totalSales={totalSales}
         totalItems={totalItems}
         avgDailySales={avgDailySales}
+        totalProfit={totalProfit}
       />
 
-      {/* Main Analytics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Charts */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Time Series Sales Chart */}
           <SalesChart data={salesChartData} />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <CategoryChart data={categoryChartData} />
             <TopProducts products={topProductsData} />
           </div>
+          <TopProfitableProducts products={profitAnalytics} />
+
+          {lowProfitProducts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <AlertTriangle className="w-5 h-5 text-red-500 inline mr-2" />
+                  Low/Negative Profit Products
+                </CardTitle>
+                <CardDescription>
+                  These products generated little or negative profit. Review pricing or consider discontinuing.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul>
+                  {lowProfitProducts.map(prod => (
+                    <li key={prod.name} className="flex justify-between text-red-600">
+                      <span>{prod.name} ({prod.category})</span>
+                      <span>₱{prod.profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
         </div>
-        
-        {/* Right Column - Activity & Alerts */}
         <div className="space-y-6">
           <RealtimeActivityFeed />
-          
-          {/* Analytics Summary Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -168,6 +189,12 @@ const Dashboard = () => {
                 <span className="text-sm font-medium">Low Stock Items</span>
                 <Badge variant={lowStockItems.length > 0 ? "destructive" : "secondary"}>
                   {lowStockItems.length}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                <span className="text-sm font-medium">Total Profit</span>
+                <Badge variant="secondary">
+                  ₱{totalProfit.toLocaleString(undefined, {maximumFractionDigits: 2})}
                 </Badge>
               </div>
             </CardContent>

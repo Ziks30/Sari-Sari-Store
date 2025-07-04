@@ -2,37 +2,45 @@ import { SalesAnalytics, ProductSalesAnalytics, CategorySalesAnalytics } from '@
 
 export const transformSalesToDailyAnalytics = (salesData: any[]): SalesAnalytics[] => {
   const dailyMap = new Map();
-  
+
   salesData?.forEach(sale => {
+    if (!sale || !sale.created_at) return; // Defensive
     const date = new Date(sale.created_at).toISOString().split('T')[0];
-    const totalItems = sale.sale_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
-    
+    const totalItems = Array.isArray(sale.sale_items)
+      ? sale.sale_items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
+      : 0;
+
     if (!dailyMap.has(date)) {
       dailyMap.set(date, {
         id: date,
         date,
         total_sales: 0,
         total_items: 0,
-        total_transactions: 0
+        total_transactions: 0,
       });
     }
-    
+
     const dayData = dailyMap.get(date);
-    dayData.total_sales += Number(sale.total_amount);
+    dayData.total_sales += Number(sale.total_amount) || 0;
     dayData.total_items += totalItems;
     dayData.total_transactions += 1;
   });
 
-  return Array.from(dailyMap.values());
+  const result = Array.from(dailyMap.values());
+  console.log('TRANSFORM: Daily sales analytics result:', result);
+  return result;
 };
 
 export const transformProductAnalytics = (productData: any[]): ProductSalesAnalytics[] => {
   const productMap = new Map();
-  
+
   productData?.forEach((item: any) => {
+    if (!item || !item.sales || !item.sales.created_at) return;
+    if (!item.products) return;
+
     const date = new Date(item.sales.created_at).toISOString().split('T')[0];
     const key = `${item.product_id}-${date}`;
-    
+
     if (!productMap.has(key)) {
       productMap.set(key, {
         id: key,
@@ -40,27 +48,30 @@ export const transformProductAnalytics = (productData: any[]): ProductSalesAnaly
         date,
         quantity_sold: 0,
         revenue: 0,
-        products: item.products
+        products: item.products,
       });
     }
-    
-    const productData = productMap.get(key);
-    productData.quantity_sold += item.quantity;
-    productData.revenue += Number(item.total_price);
+
+    const prod = productMap.get(key);
+    prod.quantity_sold += item.quantity || 0;
+    prod.revenue += Number(item.total_price) || 0;
   });
 
-  return Array.from(productMap.values());
+  const result = Array.from(productMap.values());
+  console.log('TRANSFORM: Product analytics result:', result);
+  return result;
 };
 
 export const transformCategoryAnalytics = (categoryData: any[]): CategorySalesAnalytics[] => {
   const categoryMap = new Map();
-  
+
   categoryData?.forEach((item: any) => {
-    if (!item.products?.category_id) return;
-    
+    if (!item || !item.sales || !item.sales.created_at) return;
+    if (!item.products || !item.products.category_id) return;
+
     const date = new Date(item.sales.created_at).toISOString().split('T')[0];
     const key = `${item.products.category_id}-${date}`;
-    
+
     if (!categoryMap.has(key)) {
       categoryMap.set(key, {
         id: key,
@@ -68,14 +79,16 @@ export const transformCategoryAnalytics = (categoryData: any[]): CategorySalesAn
         date,
         total_sales: 0,
         total_items: 0,
-        categories: item.products.categories
+        categories: item.products.categories || { name: 'Unknown' },
       });
     }
-    
-    const categoryData = categoryMap.get(key);
-    categoryData.total_sales += Number(item.total_price);
-    categoryData.total_items += item.quantity;
+
+    const cat = categoryMap.get(key);
+    cat.total_sales += Number(item.total_price) || 0;
+    cat.total_items += item.quantity || 0;
   });
 
-  return Array.from(categoryMap.values());
+  const result = Array.from(categoryMap.values());
+  console.log('TRANSFORM: Category analytics result:', result);
+  return result;
 };

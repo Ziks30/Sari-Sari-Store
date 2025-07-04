@@ -1,15 +1,16 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, ShoppingCart, Users, Package, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, ShoppingCart, Users, Package, Target, DollarSign } from 'lucide-react';
 
-interface KPICardsProps {
+export interface KPICardsProps {
   totalSales: number;
   totalItems: number;
   avgDailySales: number;
+  totalProfit?: number;
 }
 
-const KPICards = ({ totalSales, totalItems, avgDailySales }: KPICardsProps) => {
+const KPICards = ({ totalSales, totalItems, avgDailySales, totalProfit }: KPICardsProps) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center space-x-2">
@@ -68,6 +69,24 @@ const KPICards = ({ totalSales, totalItems, avgDailySales }: KPICardsProps) => {
               <div className="flex items-center space-x-1 mt-1">
                 <TrendingUp className="w-3 h-3 text-green-600" />
                 <span className="text-xs text-green-600">+15%</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center space-x-2">
+            <DollarSign className="w-8 h-8 text-yellow-600" />
+            <div>
+              <p className="text-2xl font-bold">
+                ₱{(totalProfit ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-sm text-gray-600">Total Profit</p>
+              <div className="flex items-center space-x-1 mt-1">
+                <TrendingUp className="w-3 h-3 text-green-600" />
+                <span className="text-xs text-green-600">+10%</span>
               </div>
             </div>
           </div>

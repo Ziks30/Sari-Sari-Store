@@ -68,11 +68,61 @@ export const useRealtimeAnalytics = () => {
     };
   }, [updateAnalyticsFromSale]);
 
+  const [profitAnalytics, setProfitAnalytics] = useState<any[]>([]);
+
+  const computeProfitAnalytics = async () => {
+    // Fetch sale_items joined with products (for cost price)
+    const { data: saleItems, error } = await supabase
+      .from('sale_items')
+      .select(`
+        id, sale_id, product_id, quantity, unit_price, total_price,
+        products (name, category_id, cost_price, unit_price)
+      `);
+  
+    // Fetch categories for later grouping
+    const { data: categories } = await supabase
+      .from('categories')
+      .select('id, name');
+  
+    // Map for category names
+    const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]));
+  
+    // Calculate profit per item, aggregate by product & category
+    const productProfits: Record<string, { name: string, profit: number, quantity: number, category: string }> = {};
+    for (const item of (saleItems || [])) {
+      const cost = item.products?.cost_price ?? 0;
+      const price = item.unit_price ?? 0;
+      const qty = item.quantity ?? 0;
+      const profit = (price - cost) * qty;
+      const productName = item.products?.name ?? 'Unknown';
+      const categoryId = item.products?.category_id ?? '';
+      const categoryName = categoryMap[categoryId] ?? 'Uncategorized';
+  
+      if (!productProfits[item.product_id]) {
+        productProfits[item.product_id] = { name: productName, profit: 0, quantity: 0, category: categoryName };
+      }
+      productProfits[item.product_id].profit += profit;
+      productProfits[item.product_id].quantity += qty;
+    }
+  
+    // Convert to array, sort by profit
+    const profitArray = Object.values(productProfits).sort((a, b) => b.profit - a.profit);
+  
+    setProfitAnalytics(profitArray);
+  };
+  
+  // In your useEffect, call computeProfitAnalytics on data change
+  useEffect(() => {
+    // ...existing fetches
+    computeProfitAnalytics();
+  }, [/* dependencies: salesAnalytics, saleItems, etc. */]);
+
   return {
     salesAnalytics,
     productAnalytics,
     categoryAnalytics,
     isLoading,
+    profitAnalytics,
     refreshAnalytics: fetchInitialData
   };
 };
