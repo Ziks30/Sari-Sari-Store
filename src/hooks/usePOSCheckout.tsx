@@ -1,8 +1,6 @@
-
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { addUtangTransaction, UtangTransaction } from '@/components/UtangManagement';
 
 interface CartItem {
   id: string;
@@ -28,7 +26,7 @@ export const usePOSCheckout = () => {
 
     try {
       const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
+
       // Create sale record
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -75,7 +73,7 @@ export const usePOSCheckout = () => {
         title: "Sale Completed",
         description: `Cash transaction of ₱${total.toFixed(2)} processed successfully`,
       });
-      
+
       clearCart();
     } catch (error) {
       console.error('Error processing cash checkout:', error);
@@ -87,7 +85,21 @@ export const usePOSCheckout = () => {
     }
   };
 
-  const handleUtangCheckout = async (debtorInfo: any, cart: CartItem[], clearCart: () => void) => {
+  // UTANG LOGIC:
+  const handleUtangCheckout = async (
+    debtorInfo: {
+      name: string;
+      phone: string;
+      address?: string;
+      amount: number;
+      utangType: 'cash' | 'goods';
+      creditLimit: number;
+      dueDate?: string;
+      notes?: string;
+    },
+    cart: CartItem[],
+    clearCart: () => void
+  ) => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -98,23 +110,49 @@ export const usePOSCheckout = () => {
     }
 
     try {
-      // Create sale record for utang
+      // 1. Check if customer exists by phone
+      let { data: customer, error: customerError } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("phone", debtorInfo.phone)
+        .single();
+
+      if (customerError && customerError.code !== 'PGRST116') throw customerError; // not found is ok
+
+      // 2. If not, create new customer (with credit limit)
+      if (!customer) {
+        const { data: newCustomer, error: createCustomerError } = await supabase
+          .from("customers")
+          .insert([{
+            name: debtorInfo.name,
+            phone: debtorInfo.phone,
+            address: debtorInfo.address,
+            credit_limit: debtorInfo.creditLimit,
+          }])
+          .select()
+          .single();
+        if (createCustomerError) throw createCustomerError;
+        customer = newCustomer;
+      }
+
+      // 3. Create sale record, linked to customer_id
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
           cashier_id: user.id,
+          customer_id: customer.id,
           total_amount: debtorInfo.amount,
           amount_paid: 0,
           credit_amount: debtorInfo.amount,
           transaction_type: 'sale',
-          notes: `Utang transaction for ${debtorInfo.name}`
+          notes: `Utang transaction for ${customer.name}`
         })
         .select()
         .single();
 
       if (saleError) throw saleError;
 
-      // Create sale items if it's goods utang
+      // 4. Create sale items if it's goods utang
       if (debtorInfo.utangType === 'goods') {
         const saleItems = cart
           .filter(item => item.id !== 'cash-borrow')
@@ -143,31 +181,24 @@ export const usePOSCheckout = () => {
         }
       }
 
-      // Also add to local utang management
-      const utangTransaction: UtangTransaction = {
-        id: `utang-${Date.now()}`,
-        customerName: debtorInfo.name,
-        customerPhone: debtorInfo.phone,
-        customerAddress: debtorInfo.address,
-        amount: debtorInfo.amount,
-        type: debtorInfo.utangType,
-        date: new Date().toISOString().split('T')[0],
-        status: 'active',
-        notes: debtorInfo.notes,
-        items: debtorInfo.utangType === 'goods' ? cart.filter(item => item.id !== 'cash-borrow').map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price
-        })) : undefined
-      };
-
-      addUtangTransaction(utangTransaction);
+      // 5. Create credit (utang) record
+      const { error: creditError } = await supabase
+        .from('credits')
+        .insert([{
+          customer_id: customer.id,
+          sale_id: sale.id,
+          amount: debtorInfo.amount,
+          status: "pending",
+          due_date: debtorInfo.dueDate || null,
+          notes: debtorInfo.notes || null
+        }]);
+      if (creditError) throw creditError;
 
       toast({
         title: "Utang Recorded",
-        description: `${debtorInfo.utangType === 'cash' ? 'Cash loan' : 'Goods purchase'} of ₱${debtorInfo.amount.toFixed(2)} recorded for ${debtorInfo.name}`,
+        description: `${debtorInfo.utangType === 'cash' ? 'Cash loan' : 'Goods purchase'} of ₱${debtorInfo.amount.toFixed(2)} recorded for ${customer.name}`,
       });
-      
+
       clearCart();
     } catch (error) {
       console.error('Error processing utang checkout:', error);
@@ -179,7 +210,11 @@ export const usePOSCheckout = () => {
     }
   };
 
-  const validateCheckout = (cart: CartItem[], paymentType: 'cash' | 'utang', hasCashBorrow: boolean) => {
+  const validateCheckout = (
+    cart: CartItem[],
+    paymentType: 'cash' | 'utang',
+    hasCashBorrow: boolean
+  ) => {
     if (cart.length === 0) {
       toast({
         title: "Empty Cart",

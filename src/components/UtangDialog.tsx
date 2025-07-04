@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +29,7 @@ interface UtangDialogProps {
     address: string;
     utangType: 'cash' | 'goods';
     amount: number;
+    creditLimit: number; // new field
   }) => void;
 }
 
@@ -38,13 +38,14 @@ const UtangDialog = ({ open, onOpenChange, totalAmount, onUtangConfirm }: UtangD
     name: '',
     phone: '',
     address: '',
-    utangType: 'goods' as 'cash' | 'goods'
+    utangType: 'goods' as 'cash' | 'goods',
+    creditLimit: 1000, // default value, can be changed
   });
   const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.phone) {
       toast({
         title: "Missing Information",
@@ -53,10 +54,19 @@ const UtangDialog = ({ open, onOpenChange, totalAmount, onUtangConfirm }: UtangD
       });
       return;
     }
+    if (!formData.creditLimit || formData.creditLimit < totalAmount) {
+      toast({
+        title: "Invalid Credit Limit",
+        description: "Credit limit must be set and greater than or equal to the utang amount.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     onUtangConfirm({
       ...formData,
-      amount: totalAmount
+      amount: totalAmount,
+      creditLimit: formData.creditLimit,
     });
 
     // Reset form
@@ -64,13 +74,14 @@ const UtangDialog = ({ open, onOpenChange, totalAmount, onUtangConfirm }: UtangD
       name: '',
       phone: '',
       address: '',
-      utangType: 'goods'
+      utangType: 'goods',
+      creditLimit: 1000,
     });
 
     onOpenChange(false);
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -131,6 +142,23 @@ const UtangDialog = ({ open, onOpenChange, totalAmount, onUtangConfirm }: UtangD
               onChange={(e) => handleInputChange('address', e.target.value)}
               placeholder="Optional address"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="credit-limit">Credit Limit *</Label>
+            <Input
+              id="credit-limit"
+              type="number"
+              inputMode="numeric"
+              min={totalAmount}
+              value={formData.creditLimit}
+              onChange={(e) => handleInputChange('creditLimit', Number(e.target.value))}
+              placeholder="e.g. 1000"
+              required
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Set the maximum utang this customer can accumulate.
+            </p>
           </div>
 
           <div className="p-3 bg-orange-50 rounded-lg">
