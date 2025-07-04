@@ -1,7 +1,8 @@
-import { useToast } from "@/hooks/use-toast";
-import { addUtangTransaction, UtangTransaction } from "@/components/UtangManagement";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { addUtangTransaction, UtangTransaction } from '@/components/UtangManagement';
 
 interface CartItem {
   id: string;
@@ -19,122 +20,166 @@ export const usePOSCheckout = () => {
     if (!user) {
       toast({
         title: "Authentication Required",
-        description: "You must be logged in to process transactions",
+        description: "Please log in to process transactions",
         variant: "destructive",
       });
       return;
     }
 
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
     try {
-      // Step 1: Insert transaction to `sales` table
-      const { data: saleData, error: saleError } = await supabase
+      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      // Create sale record
+      const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .insert([
-          {
-            customer_id: null,
-            cashier_id: user.id,
-            total_amount: total,
-            amount_paid: total,
-            change_amount: 0,
-            credit_amount: 0,
-            transaction_type: "sale",
-            notes: `Processed ${cart.length} items`,
-          }
-        ]).select().single();
+        .insert({
+          cashier_id: user.id,
+          total_amount: total,
+          amount_paid: total,
+          change_amount: 0,
+          transaction_type: 'sale'
+        })
+        .select()
+        .single();
 
       if (saleError) throw saleError;
 
-      // Step 2: Insert sale_items
-      const saleItemsPayload = cart.map(item => ({
-        sale_id: saleData.id,
-        product_id: item.id,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
-      }));
-
-      const { error: saleItemsError } = await supabase
-        .from("sale_items")
-        .insert(saleItemsPayload);
-
-      if (saleItemsError) throw saleItemsError;
-
-      // Step 3: Update stock + insert into stock_movements
-      for (const item of cart) {
-        const { error: stockUpdateError } = await supabase.rpc("decrement_product_stock", {
-          product_id_input: item.id,
-          quantity_input: item.quantity,
-        } as {
-          product_id_input: string;
-          quantity_input: number;
-        });
-
-        if (stockUpdateError) {
-          throw new Error(`Failed to update stock for ${item.name}: ${stockUpdateError.message}`);
-        }
-
-        // Optional: Log stock movement
-        await supabase.from("stock_movements").insert([{
+      // Create sale items (excluding cash borrow)
+      const saleItems = cart
+        .filter(item => item.id !== 'cash-borrow')
+        .map(item => ({
+          sale_id: sale.id,
           product_id: item.id,
-          movement_type: "sale",
           quantity: item.quantity,
-          reference_id: saleData.id,
-          reference_type: "sale",
-          notes: `Sold ${item.quantity} unit(s) of ${item.name}`,
-          created_by: user.id,
-        }]);
+          unit_price: item.price,
+          total_price: item.price * item.quantity
+        }));
+
+      if (saleItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('sale_items')
+          .insert(saleItems);
+
+        if (itemsError) throw itemsError;
+
+        // Update product stock
+        for (const item of saleItems) {
+          await supabase.rpc('decrement_product_stock', {
+            product_id_input: item.product_id,
+            quantity_input: item.quantity
+          });
+        }
       }
 
       toast({
         title: "Sale Completed",
-        description: `Cash transaction of ₱${total.toFixed(2)} processed`,
+        description: `Cash transaction of ₱${total.toFixed(2)} processed successfully`,
       });
-
+      
       clearCart();
-
-    } catch (error: any) {
-      console.error("Checkout error:", error);
+    } catch (error) {
+      console.error('Error processing cash checkout:', error);
       toast({
         title: "Transaction Failed",
-        description: error.message || "An error occurred during checkout.",
+        description: "Failed to process the transaction. Please try again.",
         variant: "destructive",
       });
     }
   };
 
-  const handleUtangCheckout = (debtorInfo: any, cart: CartItem[], clearCart: () => void) => {
-    const utangTransaction: UtangTransaction = {
-      id: `utang-${Date.now()}`,
-      customerName: debtorInfo.name,
-      customerPhone: debtorInfo.phone,
-      customerAddress: debtorInfo.address,
-      amount: debtorInfo.amount,
-      type: debtorInfo.utangType,
-      date: new Date().toISOString().split("T")[0],
-      status: "active",
-      notes: debtorInfo.notes,
-      items: debtorInfo.utangType === "goods"
-        ? cart.filter(item => item.id !== "cash-borrow").map(item => ({
-            name: item.name,
+  const handleUtangCheckout = async (debtorInfo: any, cart: CartItem[], clearCart: () => void) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to process transactions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create sale record for utang
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .insert({
+          cashier_id: user.id,
+          total_amount: debtorInfo.amount,
+          amount_paid: 0,
+          credit_amount: debtorInfo.amount,
+          transaction_type: 'sale',
+          notes: `Utang transaction for ${debtorInfo.name}`
+        })
+        .select()
+        .single();
+
+      if (saleError) throw saleError;
+
+      // Create sale items if it's goods utang
+      if (debtorInfo.utangType === 'goods') {
+        const saleItems = cart
+          .filter(item => item.id !== 'cash-borrow')
+          .map(item => ({
+            sale_id: sale.id,
+            product_id: item.id,
             quantity: item.quantity,
-            price: item.price,
-          }))
-        : undefined,
-    };
+            unit_price: item.price,
+            total_price: item.price * item.quantity
+          }));
 
-    addUtangTransaction(utangTransaction);
+        if (saleItems.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('sale_items')
+            .insert(saleItems);
 
-    toast({
-      title: "Utang Recorded",
-      description: `${debtorInfo.utangType === "cash" ? "Cash loan" : "Goods purchase"} of ₱${debtorInfo.amount.toFixed(2)} recorded for ${debtorInfo.name}`,
-    });
+          if (itemsError) throw itemsError;
 
-    clearCart();
+          // Update product stock
+          for (const item of saleItems) {
+            await supabase.rpc('decrement_product_stock', {
+              product_id_input: item.product_id,
+              quantity_input: item.quantity
+            });
+          }
+        }
+      }
+
+      // Also add to local utang management
+      const utangTransaction: UtangTransaction = {
+        id: `utang-${Date.now()}`,
+        customerName: debtorInfo.name,
+        customerPhone: debtorInfo.phone,
+        customerAddress: debtorInfo.address,
+        amount: debtorInfo.amount,
+        type: debtorInfo.utangType,
+        date: new Date().toISOString().split('T')[0],
+        status: 'active',
+        notes: debtorInfo.notes,
+        items: debtorInfo.utangType === 'goods' ? cart.filter(item => item.id !== 'cash-borrow').map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })) : undefined
+      };
+
+      addUtangTransaction(utangTransaction);
+
+      toast({
+        title: "Utang Recorded",
+        description: `${debtorInfo.utangType === 'cash' ? 'Cash loan' : 'Goods purchase'} of ₱${debtorInfo.amount.toFixed(2)} recorded for ${debtorInfo.name}`,
+      });
+      
+      clearCart();
+    } catch (error) {
+      console.error('Error processing utang checkout:', error);
+      toast({
+        title: "Transaction Failed",
+        description: "Failed to process the utang transaction. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const validateCheckout = (cart: CartItem[], paymentType: "cash" | "utang", hasCashBorrow: boolean) => {
+  const validateCheckout = (cart: CartItem[], paymentType: 'cash' | 'utang', hasCashBorrow: boolean) => {
     if (cart.length === 0) {
       toast({
         title: "Empty Cart",
@@ -144,7 +189,7 @@ export const usePOSCheckout = () => {
       return false;
     }
 
-    if (hasCashBorrow && paymentType === "cash") {
+    if (hasCashBorrow && paymentType === 'cash') {
       toast({
         title: "Invalid Payment Method",
         description: "Cannot use cash payment when there's cash borrowing in cart",
@@ -159,6 +204,6 @@ export const usePOSCheckout = () => {
   return {
     handleCashCheckout,
     handleUtangCheckout,
-    validateCheckout,
+    validateCheckout
   };
 };

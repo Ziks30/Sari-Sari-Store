@@ -1,4 +1,3 @@
-
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, ShoppingCart, Users, Package, Target } from 'lucide-react';
 
