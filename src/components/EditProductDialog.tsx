@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,10 +26,10 @@ interface Product {
   name: string;
   price: number;
   stock: number;
+  current_stock: number;
   minStock: number;
   category: string;
   lastRestocked: string;
-  barcode?: string;
   description?: string;
 }
 
@@ -46,10 +45,11 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
     name: '',
     price: '',
     minStock: '',
+    stock: '',
     category: '',
-    barcode: '',
     description: ''
   });
+
   const { toast } = useToast();
   const { categories } = useCategories();
 
@@ -59,8 +59,8 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
         name: product.name,
         price: product.price.toString(),
         minStock: product.minStock.toString(),
+        stock: product.stock.toString(),
         category: product.category,
-        barcode: product.barcode || '',
         description: product.description || ''
       });
     }
@@ -68,8 +68,15 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!product || !formData.name || !formData.price || !formData.minStock || !formData.category) {
+
+    if (
+      !product ||
+      !formData.name ||
+      !formData.price ||
+      !formData.minStock ||
+      !formData.stock ||
+      !formData.category
+    ) {
       toast({
         title: "Missing Fields",
         description: "Please fill in all required fields",
@@ -82,13 +89,13 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
       name: formData.name,
       price: parseFloat(formData.price),
       minStock: parseInt(formData.minStock),
+      stock: parseInt(formData.stock),
       category: formData.category,
-      barcode: formData.barcode,
-      description: formData.description
+      description: formData.description,
     });
 
     onOpenChange(false);
-    
+
     toast({
       title: "Product Updated",
       description: `${formData.name} has been updated`,
@@ -122,7 +129,10 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
             </div>
             <div>
               <Label htmlFor="edit-category">Category *</Label>
-              <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => handleInputChange('category', value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -136,7 +146,7 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
               </Select>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="edit-price">Price (₱) *</Label>
@@ -151,12 +161,14 @@ const EditProductDialog = ({ open, onOpenChange, product, onEditProduct }: EditP
               />
             </div>
             <div>
-              <Label htmlFor="edit-barcode">Barcode</Label>
+              <Label htmlFor="edit-stock">Current Stock *</Label>
               <Input
-                id="edit-barcode"
-                value={formData.barcode}
-                onChange={(e) => handleInputChange('barcode', e.target.value)}
-                placeholder="Optional"
+                id="edit-stock"
+                type="number"
+                value={formData.stock}
+                onChange={(e) => handleInputChange('stock', e.target.value)}
+                placeholder="0"
+                required
               />
             </div>
           </div>
