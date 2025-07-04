@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { AlertCircle, CheckCircle, Clock, X } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, X, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,8 +22,6 @@ interface CustomerWithUtang {
 type RiskLevel = 'Low' | 'Medium' | 'High';
 
 function getRiskLevel(customer: CustomerWithUtang): RiskLevel {
-  // Simple example: high risk if over 14 days since last transaction or utang > 1000
-  if (!customer.last_transaction) return 'Low';
   const days = getDaysSinceTransaction(customer.last_transaction);
   if (days > 14 || customer.total_utang > 1000) return 'High';
   if (days > 7 || customer.total_utang > 500) return 'Medium';
@@ -61,6 +59,7 @@ const UtangManagement = () => {
   const [editingCustomer, setEditingCustomer] = useState<CustomerWithUtang | null>(null);
   const [creditLimitInput, setCreditLimitInput] = useState<number | ''>('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithUtang | null>(null);
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const { toast } = useToast();
 
   // Fetch customers from DB
@@ -107,6 +106,39 @@ const UtangManagement = () => {
     });
     setEditingCustomer(null);
     setCreditLimitInput("");
+    fetchCustomers();
+  };
+
+  // Mark as paid logic
+  const recordPayment = async (customer: CustomerWithUtang) => {
+    setIsMarkingPaid(true);
+    const now = new Date().toISOString();
+
+    const { error: updateError } = await supabase
+      .from('credits')
+      .update({
+        status: 'paid',
+        paid_date: now,
+        updated_at: now,
+      })
+      .eq('customer_id', customer.id)
+      .in('status', ['pending', 'overdue']);
+
+    if (updateError) {
+      toast({
+        title: 'Payment Update Failed',
+        description: updateError.message,
+        variant: 'destructive',
+      });
+      setIsMarkingPaid(false);
+      return;
+    }
+
+    toast({
+      title: 'Payment Recorded',
+      description: `Marked all pending/overdue credits as paid for ${customer.name}.`,
+    });
+    setIsMarkingPaid(false);
     fetchCustomers();
   };
 
@@ -158,7 +190,7 @@ const UtangManagement = () => {
         {filteredCustomers.map((customer) => {
           const risk = getRiskLevel(customer);
           return (
-            <Card key={customer.id} className="cursor-pointer" onClick={() => setSelectedCustomer(customer)}>
+            <Card key={customer.id}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CardTitle>{customer.name}</CardTitle>
@@ -177,7 +209,7 @@ const UtangManagement = () => {
                     size="sm"
                     variant="ghost"
                     className="ml-2"
-                    onClick={e => {e.stopPropagation(); openEditCreditLimit(customer);}}
+                    onClick={() => openEditCreditLimit(customer)}
                   >Edit</Button>
                 </div>
                 <div className="mb-1">
@@ -188,6 +220,23 @@ const UtangManagement = () => {
                   {customer.last_transaction
                     ? `${new Date(customer.last_transaction).toLocaleDateString()} (${getDaysSinceTransaction(customer.last_transaction)} days ago)`
                     : "—"}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <Eye className="w-4 h-4 mr-1" /> View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => recordPayment(customer)}
+                    disabled={isMarkingPaid}
+                  >
+                    Mark Paid
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -271,7 +320,7 @@ const UtangManagement = () => {
                 </p>
               </div>
             </div>
-            {/* You can add more details here, like transaction history, once you fetch that info from the DB */}
+            {/* Add more details like transaction history if you wish */}
           </div>
         </div>
       )}
