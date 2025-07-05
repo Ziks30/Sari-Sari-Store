@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,9 @@ import SalesChart from '../dashboard/SalesChart';
 import CategoryChart from '../dashboard/CategoryChart';
 import TopProducts from '../dashboard/TopProducts';
 import RealtimeActivityFeed from './RealtimeActivityFeed';
+
+// Import the new decision tree insights component
+import DecisionTreeInsights from '@/components/analytics/DecisionTreeInsights';
 
 const AnalyticsDashboard = () => {
   const { 
@@ -148,6 +150,9 @@ const AnalyticsDashboard = () => {
           </Card>
         </div>
       </div>
+
+      {/* Decision Tree Insights Section */}
+      <DecisionTreeInsights />
     </div>
   );
 };

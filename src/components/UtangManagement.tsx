@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { AlertCircle, CheckCircle, Clock, X, Eye } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, X, Eye, Receipt, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -19,19 +19,34 @@ interface CustomerWithUtang {
   last_transaction: string | null;
 }
 
+interface CreditTransaction {
+  id: string;
+  customer_id: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  created_at: string;
+  notes?: string | null;
+  type?: string | null;
+  items?: Array<{
+    name: string;
+    quantity: number;
+    price?: number;
+  }>;
+}
+
 type RiskLevel = 'Low' | 'Medium' | 'High';
+
+function getDaysSinceTransaction(lastTransaction: string | null) {
+  if (!lastTransaction) return 0;
+  const last = new Date(lastTransaction);
+  return Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 function getRiskLevel(customer: CustomerWithUtang): RiskLevel {
   const days = getDaysSinceTransaction(customer.last_transaction);
   if (days > 14 || customer.total_utang > 1000) return 'High';
   if (days > 7 || customer.total_utang > 500) return 'Medium';
   return 'Low';
-}
-
-function getDaysSinceTransaction(lastTransaction: string | null) {
-  if (!lastTransaction) return 0;
-  const last = new Date(lastTransaction);
-  return Math.floor((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function getRiskColor(risk: RiskLevel) {
@@ -56,10 +71,14 @@ const UtangManagement = () => {
   const [customers, setCustomers] = useState<CustomerWithUtang[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<RiskLevel | 'All'>('All');
-  const [editingCustomer, setEditingCustomer] = useState<CustomerWithUtang | null>(null);
-  const [creditLimitInput, setCreditLimitInput] = useState<number | ''>('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithUtang | null>(null);
+  const [customerTransactions, setCustomerTransactions] = useState<CreditTransaction[]>([]);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+
+  // Track which customer is being edited
+  const [editingCreditLimitId, setEditingCreditLimitId] = useState<string | null>(null);
+  const [creditLimitInput, setCreditLimitInput] = useState<number | ''>('');
+
   const { toast } = useToast();
 
   // Fetch customers from DB
@@ -80,18 +99,29 @@ const UtangManagement = () => {
     fetchCustomers();
   }, []);
 
-  // Edit credit limit
-  const openEditCreditLimit = (customer: CustomerWithUtang) => {
-    setEditingCustomer(customer);
+  // Start editing credit limit
+  const handleStartEditingCreditLimit = (customer: CustomerWithUtang) => {
+    setEditingCreditLimitId(customer.id);
     setCreditLimitInput(customer.credit_limit);
   };
 
-  const handleEditCreditLimitSave = async () => {
-    if (!editingCustomer || creditLimitInput === "") return;
+  // Save credit limit
+  const handleSaveCreditLimit = async (customer: CustomerWithUtang) => {
+    if (creditLimitInput === "") return;
+    const newLimit = Number(creditLimitInput);
+    if (newLimit < 0) {
+      toast({
+        title: "Invalid Credit Limit",
+        description: "Credit limit cannot be negative.",
+        variant: "destructive",
+      });
+      return;
+    }
     const { error } = await supabase
       .from("customers")
-      .update({ credit_limit: creditLimitInput })
-      .eq("id", editingCustomer.id);
+      .update({ credit_limit: newLimit })
+      .eq("id", customer.id);
+
     if (error) {
       toast({
         title: "Error",
@@ -102,11 +132,17 @@ const UtangManagement = () => {
     }
     toast({
       title: "Credit Limit Updated",
-      description: `Credit limit for ${editingCustomer.name} is now ₱${Number(creditLimitInput).toLocaleString()}`,
+      description: `Credit limit for ${customer.name} is now ₱${newLimit.toLocaleString()}`,
     });
-    setEditingCustomer(null);
+    setEditingCreditLimitId(null);
     setCreditLimitInput("");
     fetchCustomers();
+  };
+
+  // Cancel editing
+  const handleCancelEditing = () => {
+    setEditingCreditLimitId(null);
+    setCreditLimitInput("");
   };
 
   // Mark as paid logic
@@ -140,6 +176,34 @@ const UtangManagement = () => {
     });
     setIsMarkingPaid(false);
     fetchCustomers();
+  };
+
+  // Fetch transactions for a specific customer
+  const handleViewDetails = async (customer: CustomerWithUtang) => {
+    setSelectedCustomer(customer);
+    try {
+      const { data, error } = await supabase
+        .from('credits')
+        .select('*')
+        .eq('customer_id', customer.id);
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch transactions.",
+          variant: "destructive",
+        });
+        setCustomerTransactions([]);
+      } else {
+        setCustomerTransactions(data || []);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+      setCustomerTransactions([]);
+    }
   };
 
   // Filter customers
@@ -183,99 +247,143 @@ const UtangManagement = () => {
           <span>Overdue: <b>{overdueCount}</b></span>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredCustomers.length === 0 && (
-          <div className="text-gray-500">No customers found.</div>
-        )}
+
+      {/* Customer Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCustomers.map((customer) => {
+          const daysSince = getDaysSinceTransaction(customer.last_transaction);
           const risk = getRiskLevel(customer);
+          const isEditingThisCard = editingCreditLimitId === customer.id;
+
           return (
-            <Card key={customer.id}>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CardTitle>{customer.name}</CardTitle>
-                  <Badge variant={getRiskColor(risk)} className="flex items-center gap-1">
+            <Card key={customer.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
+                        {customer.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-semibold">{customer.name}</h3>
+                      <p className="text-sm text-gray-600">{customer.phone}</p>
+                    </div>
+                  </div>
+                  <Badge variant={getRiskColor(risk) as any} className="flex items-center space-x-1">
                     {getRiskIcon(risk)}
                     <span>{risk}</span>
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="mb-1">Phone: <span className="font-medium">{customer.phone || "—"}</span></div>
-                <div className="mb-1">Address: <span className="font-medium">{customer.address || "—"}</span></div>
-                <div className="mb-1">
-                  Credit Limit: <span className="font-medium text-blue-700">₱{customer.credit_limit?.toLocaleString()}</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="ml-2"
-                    onClick={() => openEditCreditLimit(customer)}
-                  >Edit</Button>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Utang</p>
+                    <p className="text-lg font-bold text-red-600">
+                      ₱{customer.total_utang.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Last Transaction</p>
+                    <p className="text-sm font-medium">{daysSince} days ago</p>
+                  </div>
                 </div>
-                <div className="mb-1">
-                  Total Utang: <span className="font-medium text-red-600">₱{customer.total_utang?.toLocaleString()}</span>
+
+                {/* Inline credit limit editor */}
+                <div>
+                  <p className="text-sm text-gray-600">Credit Limit</p>
+                  {!isEditingThisCard ? (
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">
+                        ₱{customer.credit_limit.toLocaleString()}
+                      </p>
+                      <Button size="sm" variant="outline" onClick={() => handleStartEditingCreditLimit(customer)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={creditLimitInput}
+                        onChange={e => setCreditLimitInput(Number(e.target.value))}
+                        className="max-w-[120px]"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => handleSaveCreditLimit(customer)}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={handleCancelEditing}>
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <div className="mb-1">
-                  Last Transaction:{" "}
-                  {customer.last_transaction
-                    ? `${new Date(customer.last_transaction).toLocaleDateString()} (${getDaysSinceTransaction(customer.last_transaction)} days ago)`
-                    : "—"}
-                </div>
-                <div className="flex gap-2 mt-2">
+
+                {customer.address && (
+                  <div>
+                    <p className="text-sm text-gray-600">Address</p>
+                    <p className="text-sm">{customer.address}</p>
+                  </div>
+                )}
+                <div className="flex space-x-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setSelectedCustomer(customer)}
+                    className="flex-1"
+                    onClick={() => handleViewDetails(customer)}
                   >
-                    <Eye className="w-4 h-4 mr-1" /> View
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Details
                   </Button>
                   <Button
                     size="sm"
-                    variant="destructive"
+                    className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={() => recordPayment(customer)}
                     disabled={isMarkingPaid}
                   >
+                    <Receipt className="w-4 h-4 mr-2" />
                     Mark Paid
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
-      {/* Edit Credit Limit Dialog */}
-      <Dialog open={!!editingCustomer} onOpenChange={open => !open && setEditingCustomer(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Credit Limit</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p>
-              Set new credit limit for <span className="font-bold">{editingCustomer?.name}</span>:
+      {/* High Risk Alert */}
+      {highRiskCount > 0 && (
+        <Card className="border-red-200 bg-red-50 mt-4">
+          <CardHeader>
+            <CardTitle className="text-red-800 flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5" />
+              <span>High Risk Customers Alert</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-red-700 mb-3">
+              {highRiskCount} customer{highRiskCount > 1 ? 's' : ''} require immediate attention due to overdue payments.
             </p>
-            <Input
-              type="number"
-              min={0}
-              value={creditLimitInput}
-              onChange={e => setCreditLimitInput(Number(e.target.value))}
-              placeholder="Enter credit limit"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingCustomer(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={handleEditCreditLimitSave}
-              disabled={creditLimitInput === "" || Number(creditLimitInput) < 0}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <div className="space-y-2">
+              {customers
+                .filter(c => getRiskLevel(c) === 'High')
+                .map((cust) => (
+                  <div key={cust.id} className="bg-white p-3 rounded-lg border flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">{cust.name}</p>
+                      <p className="text-sm text-gray-600">
+                        ₱{cust.total_utang.toLocaleString()} • {getDaysSinceTransaction(cust.last_transaction)} days overdue
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline">Contact</Button>
+                  </div>
+                ))
+              }
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* View Details Modal */}
       {selectedCustomer && (
@@ -283,7 +391,10 @@ const UtangManagement = () => {
           <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative">
             <button
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-              onClick={() => setSelectedCustomer(null)}
+              onClick={() => {
+                setSelectedCustomer(null);
+                setCustomerTransactions([]);
+              }}
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -301,7 +412,10 @@ const UtangManagement = () => {
                   <p className="text-sm text-gray-600">{selectedCustomer.address}</p>
                 )}
               </div>
-              <Badge variant={getRiskColor(getRiskLevel(selectedCustomer))} className="ml-auto flex items-center space-x-1">
+              <Badge
+                variant={getRiskColor(getRiskLevel(selectedCustomer)) as any}
+                className="ml-auto flex items-center space-x-1"
+              >
                 {getRiskIcon(getRiskLevel(selectedCustomer))}
                 <span>{getRiskLevel(selectedCustomer)}</span>
               </Badge>
@@ -309,18 +423,54 @@ const UtangManagement = () => {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <p className="text-xs text-gray-500">Total Utang</p>
-                <p className="text-lg font-bold text-red-600">₱{selectedCustomer.total_utang.toLocaleString()}</p>
+                <p className="text-lg font-bold text-red-600">
+                  ₱{selectedCustomer.total_utang.toLocaleString()}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Last Transaction</p>
                 <p className="text-sm">
-                  {selectedCustomer.last_transaction
-                    ? `${getDaysSinceTransaction(selectedCustomer.last_transaction)} days ago`
-                    : "—"}
+                  {getDaysSinceTransaction(selectedCustomer.last_transaction)} days ago
                 </p>
               </div>
             </div>
-            {/* Add more details like transaction history if you wish */}
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Transactions</p>
+              <div className="max-h-40 overflow-y-auto border rounded">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 text-left">Date</th>
+                      <th className="p-2 text-left">Amount</th>
+                      <th className="p-2 text-left">Type</th>
+                      <th className="p-2 text-left">Status</th>
+                      <th className="p-2 text-left">Items</th>
+                      <th className="p-2 text-left">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerTransactions.map(tx => (
+                      <tr key={tx.id} className="border-b">
+                        <td className="p-2">
+                          {new Date(tx.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="p-2">₱{tx.amount?.toLocaleString()}</td>
+                        <td className="p-2 capitalize">{tx.type || 'goods'}</td>
+                        <td className="p-2 capitalize">{tx.status}</td>
+                        <td className="p-2">
+                          {tx.items
+                            ? tx.items
+                                .map(item => `${item.name} x${item.quantity}`)
+                                .join(', ')
+                            : '-'}
+                        </td>
+                        <td className="p-2">{tx.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}
